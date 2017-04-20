@@ -26,3 +26,4 @@ htmlcov
 *.log*
 openaigym.video*
 snapshots/
+*.pkl
