@@ -10,20 +10,30 @@ import argparse, sys, cPickle
 from tabulate import tabulate
 import shutil, os, logging, h5py
 import gym
+from osim.env import GaitEnv
+# import newrelic.agent
 
-if __name__ == "__main__":
+# # application = newrelic.agent.register_application(timeout=10.0)
+# # import newrelic.agent
+# newrelic.agent.initialize('/Users/anil/newrelic.ini', 'production')
+# @newrelic.agent.background_task(name='trpo-osim', group='rl')
+if __name__ == '__main__':
+    sys.stdout.flush()
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     update_argument_parser(parser, GENERAL_OPTIONS)
     parser.add_argument("--env",required=True)
     parser.add_argument("--agent",required=True)
     parser.add_argument("--plot",action="store_true")
     args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
-    env = make(args.env)
+    env = GaitEnv(visualize=False)
     env_spec = env.spec
     mondir = args.outfile + ".dir"
     if os.path.exists(mondir): shutil.rmtree(mondir)
     os.mkdir(mondir)
-    env = gym.wrappers.Monitor(env, mondir, video_callable=None if args.video else VIDEO_NEVER)
+    # env = gym.wrappers.Monitor(env, mondir, video_callable=None if args.video else VIDEO_NEVER)
+    # env.spec.timestep_limit = 50
+    # print env.spec.timestep_limit, "@@@@@@@@@@@@"
+    # env = GaitEnv(visualize=False)
     agent_ctor = get_agent_cls(args.agent)
     update_argument_parser(parser, agent_ctor.options)
     args = parser.parse_args()
@@ -32,6 +42,7 @@ if __name__ == "__main__":
     cfg = args.__dict__
     np.random.seed(args.seed)
 
+    # loading agent from snapshot logic
     loading_from_snapshot = False
     if args.load_snapshot != '':
         print "loading agent from snapshot", args.load_snapshot
@@ -48,6 +59,7 @@ if __name__ == "__main__":
         agent = cPickle.loads(hdff['agent_snapshots'][snapname].value)
     else:
         agent = agent_ctor(env.observation_space, env.action_space, cfg)
+    # agent = agent_ctor(env.observation_space, env.action_space, cfg)
 
     if args.use_hdf:
         hdf, diagnostics = prepare_h5_file(args)
@@ -70,14 +82,10 @@ if __name__ == "__main__":
                     diagnostics[stat].extend(val)
             if args.snapshot_every and ((COUNTER % args.snapshot_every==0) or (COUNTER==args.n_iter)):
                 hdf['/agent_snapshots/%0.4i'%COUNTER] = np.array(cPickle.dumps(agent,-1))
-        
-        print diagnostics.keys()
-        print len(diagnostics[stat])
-        
         # Plot
         if args.plot:
-            print "plot is set??? @@@@@@@@@@@@@@@@"
             animate_rollout(env, agent, min(500, args.timestep_limit))
+
 
     run_policy_gradient_algorithm(env, agent, callback=callback, usercfg = cfg)
 

@@ -8,6 +8,7 @@ from importlib import import_module
 import scipy.optimize
 from .keras_theano_setup import floatX, FNOPTS
 from keras.layers.core import Layer
+import gc
 
 # ================================================================
 # Make agent 
@@ -98,6 +99,8 @@ def run_policy_gradient_algorithm(env, agent, usercfg=None, callback=None):
         add_prefixed_stats(stats, "pol", pol_stats)
         stats["TimeElapsed"] = time.time() - tstart
         if callback: callback(stats)
+        x = gc.collect()
+        print x, 'garbage collected @@@@@@@@@@@@@@@'
 
 def get_paths(env, agent, cfg, seed_iter):
     if cfg["parallel"]:
