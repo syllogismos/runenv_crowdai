@@ -27,3 +27,4 @@ htmlcov
 openaigym.video*
 snapshots/
 *.pkl
+.vscode/

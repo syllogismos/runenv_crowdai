@@ -11,6 +11,7 @@ from tabulate import tabulate
 import shutil, os, logging, h5py
 import gym
 from osim.env import GaitEnv
+import ast
 # import newrelic.agent
 
 # # application = newrelic.agent.register_application(timeout=10.0)
@@ -24,6 +25,9 @@ if __name__ == '__main__':
     parser.add_argument("--env",required=True)
     parser.add_argument("--agent",required=True)
     parser.add_argument("--plot",action="store_true")
+    parser.add_argument("--threads", type=int, default=1)
+    parser.add_argument("--ec2", type=ast.literal_eval, default=False)
+    parser.add_argument("--destroy_env_every", type=int, default=5)
     args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     env = GaitEnv(visualize=False)
     env_spec = env.spec
@@ -87,7 +91,13 @@ if __name__ == '__main__':
             animate_rollout(env, agent, min(500, args.timestep_limit))
 
 
-    run_policy_gradient_algorithm(env, agent, callback=callback, usercfg = cfg)
+    run_policy_gradient_algorithm(env,
+                                  agent,
+                                  threads=args.threads,
+                                  destroy_env_every=args.destroy_env_every,
+                                  ec2=args.ec2,
+                                  callback=callback,
+                                  usercfg = cfg)
 
     if args.use_hdf:
         hdf['env_id'] = env_spec.id

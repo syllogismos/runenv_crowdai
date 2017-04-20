@@ -9,6 +9,11 @@ import scipy.optimize
 from .keras_theano_setup import floatX, FNOPTS
 from keras.layers.core import Layer
 import gc
+from osim_http_mrl_client import Client
+from osim_helpers import start_env_server
+import time
+from multiprocessing import Pool
+import psutil
 
 # ================================================================
 # Make agent 
@@ -73,7 +78,7 @@ PG_OPTIONS = [
     ("lam", float, 1.0, "lambda parameter from generalized advantage estimation"),
 ]
 
-def run_policy_gradient_algorithm(env, agent, usercfg=None, callback=None):
+def run_policy_gradient_algorithm(env, agent, threads=1, destroy_env_every=5, ec2=False, usercfg=None, callback=None):
     cfg = update_default_config(PG_OPTIONS, usercfg)
     cfg.update(usercfg)
     print "policy gradient config", cfg
@@ -84,9 +89,22 @@ def run_policy_gradient_algorithm(env, agent, usercfg=None, callback=None):
     tstart = time.time()
     seed_iter = itertools.count()
 
-    for _ in xrange(cfg["n_iter"]):
+    print "creating servers for the first time"
+    servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
+    time.sleep(10)
+    print "craeting envs for the first time"
+    envs = create_envs(threads)
+    
+    for i in xrange(cfg["n_iter"]):
         # Rollouts ========
-        paths = get_paths(env, agent, cfg, seed_iter)
+        if i != 0 and i % destroy_env_every == 0:
+            destroy_servers(servers)
+            print "recreating servers again at ", i
+            servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
+            time.sleep(10)
+            print "recreating envs"
+            envs = create_envs(threads)
+        paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=threads)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
         # VF Update ========
         vf_stats = agent.baseline.fit(paths)
@@ -101,14 +119,59 @@ def run_policy_gradient_algorithm(env, agent, usercfg=None, callback=None):
         if callback: callback(stats)
         x = gc.collect()
         print x, 'garbage collected @@@@@@@@@@@@@@@'
+    destroy_servers(servers)
 
-def get_paths(env, agent, cfg, seed_iter):
-    if cfg["parallel"]:
-        raise NotImplementedError
+def create_envs(threads):
+    envs = [] #[Client(i) for i in range(threads)]
+    for i in range(0, threads):
+        while True:
+            try:
+                temp_env = Client(i)
+                envs.append(temp_env)
+                break
+            except Exception:
+                print "Exception while creating env of port ", i
+                print "Trying to create env again"
+    return envs
+
+def destroy_servers(servers):
+    print "Destroying env servers"
+    print servers
+    for pid in servers:
+        try:
+            process = psutil.Process(pid)
+            for child in process.children():
+                child.terminate()
+                child.wait()
+            process.terminate()
+            process.wait()
+        except:
+            print("process doesnt exist", pid)
+            pass
+    pass
+
+def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
+    # if envs == None:
+    #     envs = [env]
+    pickled_enum = zip(envs, [agent]*threads, [cfg['timestep_limit']]*threads, [cfg['timesteps_per_batch']/threads]*threads)
+    if threads > 1:
+        p = Pool(threads)
+        parallel_paths = p.map(do_rollouts_single_thread, enumerate(pickled_enum))
+        p.close()
+        p.join()
+        paths = list(itertools.chain(*parallel_paths))
+        # raise NotImplementedError
     else:
         paths = do_rollouts_serial(env, agent, cfg["timestep_limit"], cfg["timesteps_per_batch"], seed_iter)
     return paths
 
+def do_rollouts_single_thread(enum_env):
+    seed_iter = itertools.count(enum_env[0]*100)
+    thread_paths = do_rollouts_serial(enum_env[1][0], enum_env[1][1], enum_env[1][2], enum_env[1][3], seed_iter)
+    print "no of episodes in this thread,", len(thread_paths)
+    print "episode lengths in this thread,", [len(x['reward']) for x in thread_paths]
+    print "total rewards in this thread,", [sum(x['reward']) for x in thread_paths]
+    return thread_paths
 
 def rollout(env, agent, timestep_limit):
     """
@@ -141,7 +204,7 @@ def do_rollouts_serial(env, agent, timestep_limit, n_timesteps, seed_iter):
     paths = []
     timesteps_sofar = 0
     while True:
-        np.random.seed(seed_iter.next())
+        # np.random.seed(seed_iter.next())
         path = rollout(env, agent, timestep_limit)
         paths.append(path)
         timesteps_sofar += pathlength(path)
