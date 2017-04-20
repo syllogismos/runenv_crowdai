@@ -204,7 +204,7 @@ def do_rollouts_serial(env, agent, timestep_limit, n_timesteps, seed_iter):
     paths = []
     timesteps_sofar = 0
     while True:
-        # np.random.seed(seed_iter.next())
+        np.random.seed(seed_iter.next())
         path = rollout(env, agent, timestep_limit)
         paths.append(path)
         timesteps_sofar += pathlength(path)
