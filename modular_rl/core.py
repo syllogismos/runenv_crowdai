@@ -105,7 +105,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1, destroy_env_every=5, ec
             print "recreating envs"
             envs = create_envs(threads)
         paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=threads)
-        threshold_paths = filter(lambda x: sum(x['reward']) > 2100.0, paths)
+        threshold_paths = filter(lambda x: sum(x['reward']) > 2300.0, paths)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
         # VF Update ========
         vf_stats = agent.baseline.fit(paths)
