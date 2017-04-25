@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+echo "run 1"
+python -u run_osim.py --gamma=0.995 --lam=0.97 --agent=modular_rl.agentzoo.TrpoAgent --max_kl=0.01 --cg_damping=0.1 --activation=tanh --n_iter=10 --seed=0 --timesteps_per_batch=1000 --env='MountainCar-v0' --outfile=$outdir/osim_gait_test1.h5 --use_hdf=1 --snapshot_every=1 --destroy_env_every=2 --ec2=True --threads=5 --load_snapshot=./snapshots/osim_gait_parallel5_100000.h5 --timestep_limit=500 > osim_gait_test1.log
+echo "run 2"
+python -u run_osim.py --gamma=0.995 --lam=0.97 --agent=modular_rl.agentzoo.TrpoAgent --max_kl=0.01 --cg_damping=0.1 --activation=tanh --n_iter=10 --seed=0 --timesteps_per_batch=1000 --env='MountainCar-v0' --outfile=$outdir/osim_gait_test2.h5 --use_hdf=1 --snapshot_every=1 --destroy_env_every=2 --ec2=True --threads=5 --load_snapshot=./snapshots/osim_gait_parallel5_100000.h5 --timestep_limit=500 > osim_gait_test2.log
