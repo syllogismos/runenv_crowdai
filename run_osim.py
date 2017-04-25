@@ -98,7 +98,7 @@ if __name__ == '__main__':
             #     snapshot_name = args.load_snapshot[10:-3]
             # else:
             #     snapshot_name = 'initial_training'
-            outfile_prefix = os.path.basename(args.outfile)[:-2]
+            outfile_prefix = os.path.basename(args.outfile)[:-3]
             pickle_file = 'training_agent_runs/' + '_'.join([outfile_prefix,
                                                             str(COUNTER),
                                                             str(pth['seed']),
