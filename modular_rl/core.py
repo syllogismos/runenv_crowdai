@@ -105,6 +105,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1, destroy_env_every=5, ec
             print "recreating envs"
             envs = create_envs(threads)
         paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=threads)
+        threshold_paths = filter(lambda x: sum(x['reward']) > 2300.0, paths)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
         # VF Update ========
         vf_stats = agent.baseline.fit(paths)
@@ -116,7 +117,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1, destroy_env_every=5, ec
         add_prefixed_stats(stats, "vf", vf_stats)
         add_prefixed_stats(stats, "pol", pol_stats)
         stats["TimeElapsed"] = time.time() - tstart
-        if callback: callback(stats)
+        if callback: callback(stats, threshold_paths)
         x = gc.collect()
         print x, 'garbage collected @@@@@@@@@@@@@@@'
     destroy_servers(servers)
@@ -204,8 +205,10 @@ def do_rollouts_serial(env, agent, timestep_limit, n_timesteps, seed_iter):
     paths = []
     timesteps_sofar = 0
     while True:
-        np.random.seed(seed_iter.next())
+        rollout_seed = seed_iter.next()
+        np.random.seed(rollout_seed)
         path = rollout(env, agent, timestep_limit)
+        path['seed'] = rollout_seed
         paths.append(path)
         timesteps_sofar += pathlength(path)
         if timesteps_sofar > n_timesteps:

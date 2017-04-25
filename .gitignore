@@ -28,3 +28,5 @@ openaigym.video*
 snapshots/
 *.pkl
 .vscode/
+agent_runs/
+training_agent_runs/

@@ -12,6 +12,7 @@ import shutil, os, logging, h5py
 import gym
 from osim.env import GaitEnv
 import ast
+import pickle
 # import newrelic.agent
 
 # # application = newrelic.agent.register_application(timeout=10.0)
@@ -70,7 +71,7 @@ if __name__ == '__main__':
     gym.logger.setLevel(logging.WARN)
 
     COUNTER = 0
-    def callback(stats):
+    def callback(stats, th_paths):
         global COUNTER
         COUNTER += 1
         # Print stats
@@ -89,7 +90,21 @@ if __name__ == '__main__':
         # Plot
         if args.plot:
             animate_rollout(env, agent, min(500, args.timestep_limit))
-
+        print "dumping these no of path pickles", len(th_paths)
+        for pth in th_paths:
+            total_rew = sum(pth['reward'])
+            pth['tot_rew'] = total_rew
+            if args.load_snapshot != '':
+                snapshot_name = args.load_snapshot[10:-3]
+            else:
+                snapshot_name = 'initial_training'
+            pickle_file = 'training_agent_runs/' + '_'.join([snapshot_name,
+                                                            str(COUNTER),
+                                                            str(pth['seed']),
+                                                            str(int(total_rew)),
+                                                            str(int(time.time()))])
+            print "Name of the pickle file", pickle_file
+            pickle.dump(pth, open(pickle_file, 'wb'))
 
     run_policy_gradient_algorithm(env,
                                   agent,
