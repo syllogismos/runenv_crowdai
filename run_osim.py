@@ -94,11 +94,12 @@ if __name__ == '__main__':
         for pth in th_paths:
             total_rew = sum(pth['reward'])
             pth['tot_rew'] = total_rew
-            if args.load_snapshot != '':
-                snapshot_name = args.load_snapshot[10:-3]
-            else:
-                snapshot_name = 'initial_training'
-            pickle_file = 'training_agent_runs/' + '_'.join([snapshot_name,
+            # if args.load_snapshot != '':
+            #     snapshot_name = args.load_snapshot[10:-3]
+            # else:
+            #     snapshot_name = 'initial_training'
+            outfile_prefix = os.path.basename(args.outfile)[:-2]
+            pickle_file = 'training_agent_runs/' + '_'.join([outfile_prefix,
                                                             str(COUNTER),
                                                             str(pth['seed']),
                                                             str(int(total_rew)),
