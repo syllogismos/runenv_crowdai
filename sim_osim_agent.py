@@ -66,6 +66,7 @@ def run_agent_from_infos(infos_file):
             reward_bar.update(rew)
             if done:
                 print "terminated after timestep", i
+                break
             for k, v in info.items():
                 infos[k].append(v)
             sim_infos['ob'].append(ob)

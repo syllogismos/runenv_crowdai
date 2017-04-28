@@ -10,10 +10,12 @@ from .keras_theano_setup import floatX, FNOPTS
 from keras.layers.core import Layer
 import gc
 from osim_http_mrl_client import Client
+from osim_http_ext_client import Client as ext_client
 from osim_helpers import start_env_server
 import time
 from multiprocessing import Pool
 import psutil
+from osim_helpers import start_osim_apps, stop_osim_apps, ip_config
 
 # ================================================================
 # Make agent 
@@ -90,21 +92,39 @@ def run_policy_gradient_algorithm(env, agent, threads=1, destroy_env_every=5, ec
     seed_iter = itertools.count()
 
     print "creating servers for the first time"
-    servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
-    time.sleep(10)
-    print "craeting envs for the first time"
-    envs = create_envs(threads)
+    # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
+    # time.sleep(10)
+    # print "craeting envs for the first time"
+    # envs = create_envs(threads)
+    server_states = {}
+    envs = []
+    for con in ip_config:
+        server_states[con['ip']] = start_osim_apps(con['ip'], 8018, con['cores'])
+        time.sleep(10)
+        envs.extend(create_ext_envs(con['ip'], con['cores']))
+
     
     for i in xrange(cfg["n_iter"]):
         # Rollouts ========
         if i != 0 and i % destroy_env_every == 0:
-            destroy_servers(servers)
-            print "recreating servers again at ", i
-            servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
-            time.sleep(10)
-            print "recreating envs"
-            envs = create_envs(threads)
-        paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=threads)
+            # destroy_servers(servers)
+            # print "recreating servers again at ", i
+            # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
+            # time.sleep(10)
+            # print "recreating envs"
+            # envs = create_envs(threads)
+            envs = []
+            for con in ip_config:
+                print "stopping osim envs at server", con['ip']
+                stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
+                print "starting osim envs at server", con['ip']
+                server_states[con['ip']] = start_osim_apps(con['ip'], 8018, con['cores'])
+                time.sleep(10)
+                print "creating envx at server", con['ip'], con['cores']
+                envs.extend(create_ext_envs(con['ip'], con['cores']))
+
+        multi_pool_count = len(envs)
+        paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=multi_pool_count)
         threshold_paths = filter(lambda x: sum(x['reward']) > 2300.0, paths)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
         # VF Update ========
@@ -120,7 +140,10 @@ def run_policy_gradient_algorithm(env, agent, threads=1, destroy_env_every=5, ec
         if callback: callback(stats, threshold_paths)
         x = gc.collect()
         print x, 'garbage collected @@@@@@@@@@@@@@@'
-    destroy_servers(servers)
+    # destroy_servers(servers)
+    for con in ip_config:
+        print "stopping osim envs for the final time at server", con['ip']
+        stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
 
 def create_envs(threads):
     envs = [] #[Client(i) for i in range(threads)]
@@ -133,6 +156,19 @@ def create_envs(threads):
             except Exception:
                 print "Exception while creating env of port ", i
                 print "Trying to create env again"
+    return envs
+
+def create_ext_envs(ip, cores):
+    envs = []
+    for i in range(0, cores):
+        while True:
+            try:
+                temp_env = ext_client(p=0, rb=ip)
+                envs.append(temp_env)
+                break
+            except Exception:
+                print "exception while creatating env at server", ip, i
+                print "trying to create env again"
     return envs
 
 def destroy_servers(servers):
