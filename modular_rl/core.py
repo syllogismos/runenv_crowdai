@@ -163,7 +163,7 @@ def create_ext_envs(ip, cores):
     for i in range(0, cores):
         while True:
             try:
-                temp_env = ext_client(p=0, rb=ip)
+                temp_env = ext_client(p=i, rb=ip)
                 envs.append(temp_env)
                 break
             except Exception:
