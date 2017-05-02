@@ -44,7 +44,7 @@ if __name__ == '__main__':
             #     snapshot_name = 'initial_training'
             outfile_prefix = 'agent_runs' #os.path.basename(args.outfile)[:-3]
             pickle_file = 'multiple_agent_runs/' + '_'.join([outfile_prefix,
-                                                            str(COUNTER),
+                                                            str(iter),
                                                             str(pth['seed']),
                                                             str(int(total_rew)),
                                                             str(int(time.time()))])
