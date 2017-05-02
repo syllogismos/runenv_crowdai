@@ -17,7 +17,7 @@ if __name__ == '__main__':
     cfg = {}
     cfg['timestep_limit'] = 500
     cfg['timesteps_per_batch'] = 100000
-    seed_iter_count = 0
+    seed_iter_count = 1428
     iter = 0
     while True:
         iter += 1
