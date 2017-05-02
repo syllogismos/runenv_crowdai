@@ -50,4 +50,5 @@ if __name__ == '__main__':
                                                             str(int(time.time()))])
             print "Name of the pickle file", pickle_file
             pickle.dump(pth, open(pickle_file, 'wb'))
-        stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
+        for con in ip_config:
+            stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
