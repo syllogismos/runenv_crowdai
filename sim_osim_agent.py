@@ -25,7 +25,7 @@ token = 'a6e5f414845fafd1063253a11429c78f'
 
 def animate_rollout(env, agent, n_timesteps,delay=.01):
     infos = defaultdict(list)
-    ob = env.reset()
+    ob = env.reset(difficult=0, seed=1)
     if hasattr(agent,"reset"): agent.reset()
     env.render()
     tot_rew = 0.0
@@ -181,9 +181,9 @@ def main():
             pass
         else:
             if args.visualize == 0:
-                env = GaitEnv(visualize=False)
+                env = RunEnv(visualize=False)
             else:
-                env = GaitEnv(visualize = True)
+                env = RunEnv(visualize = True)
             timestep_limit = args.timestep_limit or env.spec.timestep_limit
 
         while True:

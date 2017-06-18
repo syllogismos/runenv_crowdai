@@ -66,7 +66,7 @@ def destroy_servers(servers):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--listen', type=str, default='127.0.0.1')
-    parser.add_argument('--port', type=int, default=8081)
+    parser.add_argument('--port', type=int, default=8018)
     args = parser.parse_args()
     server = HTTPServer((args.listen, args.port), myHandler)
     print "started httpserver on port", args.listen, args.port

@@ -7,9 +7,9 @@ def start_env_server(p=0, ec2=False, l='127.0.0.1'):
     # subprocess.call(['source', 'deactivate'])
     port = str(5000 + p)
     if ec2:
-        server_script_path = '/home/ubuntu/modular_rl/osim_http_server.py'
+        server_script_path = '/home/anil/runenv/osim_http_server.py'
     else:
-        server_script_path = '/Users/anil/Code/crowdai/modular_rl/osim_http_server.py'
+        server_script_path = '/Users/anil/Code/crowdai/runenv/osim_http_server.py'
     
     command = server_script_path + ' -p ' + port + ' -l ' + l
     process = subprocess.Popen(command, shell=True)

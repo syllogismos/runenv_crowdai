@@ -10,7 +10,7 @@ import argparse, sys, cPickle
 from tabulate import tabulate
 import shutil, os, logging, h5py
 import gym
-from osim.env import GaitEnv
+from osim.env import RunEnv
 import ast
 import pickle
 # import newrelic.agent
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("--ec2", type=ast.literal_eval, default=False)
     parser.add_argument("--destroy_env_every", type=int, default=5)
     args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
-    env = GaitEnv(visualize=False)
+    env = RunEnv(visualize=False)
     env_spec = env.spec
     mondir = args.outfile + ".dir"
     if os.path.exists(mondir): shutil.rmtree(mondir)

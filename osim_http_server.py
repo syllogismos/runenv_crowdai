@@ -19,7 +19,7 @@ import numpy as np
 import six
 import argparse
 
-from osim.env import GaitEnv
+from osim.env import RunEnv
 
 import logging
 logger = logging.getLogger('werkzeug')
@@ -58,7 +58,7 @@ class Envs(object):
     def create(self, env_id, visualize=False):
         try:
             # env = gym.make(env_id)
-            env = GaitEnv(visualize=visualize)
+            env = RunEnv(visualize=visualize)
         except gym.error.Error:
             raise InvalidUsage("Attempted to look up malformed environment ID '{}'".format(env_id))
 
@@ -71,7 +71,7 @@ class Envs(object):
 
     def reset(self, instance_id):
         env = self._lookup_env(instance_id)
-        obs = env.reset()
+        obs = env.reset(difficulty=0, seed=1)
         return env.observation_space.to_jsonable(obs)
 
     def step(self, instance_id, action, render):
@@ -105,9 +105,9 @@ class Envs(object):
                 print('TypeError')
         return action
 
-    def get_action_space_contains(self, instance_id, x):
-        env = self._lookup_env(instance_id)
-        return env.action_space.contains(int(x))
+    # def get_action_space_contains(self, instance_id, x):
+    #     env = self._lookup_env(instance_id)
+    #     return env.action_space.contains(int(x))
 
     def get_observation_space_info(self, instance_id):
         env = self._lookup_env(instance_id)
