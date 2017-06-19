@@ -25,7 +25,7 @@ token = 'a6e5f414845fafd1063253a11429c78f'
 
 def animate_rollout(env, agent, n_timesteps,delay=.01):
     infos = defaultdict(list)
-    ob = env.reset(difficult=0, seed=1)
+    ob = env.reset(difficulty=2, seed=1)
     if hasattr(agent,"reset"): agent.reset()
     env.render()
     tot_rew = 0.0
@@ -35,10 +35,10 @@ def animate_rollout(env, agent, n_timesteps,delay=.01):
             a, _info = agent.act(ob)
             (ob, rew, done, info) = env.step(a)
             tot_rew += rew
-            reward_bar.update(rew)
+            reward_bar.update(max(rew, 0.000001))
             env.render()
             if done:
-                print("terminated after %s timesteps"%i)
+                print("\n terminated after %s timesteps"%i)
                 break
             for (k,v) in info.items():
                 infos[k].append(v)
@@ -63,9 +63,9 @@ def run_agent_from_infos(infos_file):
             a = infos['action'][i]
             ob, rew, done, info = env.step(a)
             tot_rew += rew
-            reward_bar.update(rew)
+            reward_bar.update(max(rew, 0.000001))
             if done:
-                print "terminated after timestep", i
+                print "\n terminated after timestep", i
                 break
             for k, v in info.items():
                 infos[k].append(v)
@@ -173,6 +173,8 @@ def main():
     # env = gym.make(hdf["env_id"].value)
 
     agent = cPickle.loads(hdf['agent_snapshots'][snapname].value)
+    # agent = cPickle.load(open('./snapshots/run_env_test12.h5.dir/2_11_12.pkl', 'rb'))
+    # print './snapshots/run_env_test12.h5.dir/2_11_12.pkl'
     agent.stochastic=False
 
     
@@ -210,7 +212,7 @@ def main():
             #     if k.startswith("reward"):
             #         print "%s: %f"%(k, np.sum(v))
             # print "Total reward", tot_rew
-            raw_input("press enter to continue")
+            raw_input("\n press enter to continue")
     else:
         if args.submit == 1:
             infos, tot_rew = submit_agent_from_infos(args.from_infos)

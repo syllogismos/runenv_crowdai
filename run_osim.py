@@ -87,6 +87,11 @@ if __name__ == '__main__':
                     diagnostics[stat].extend(val)
             if args.snapshot_every and ((COUNTER % args.snapshot_every==0) or (COUNTER==args.n_iter)):
                 hdf['/agent_snapshots/%0.4i'%COUNTER] = np.array(cPickle.dumps(agent,-1))
+                dir_name = args.outfile + '.dir/'
+                if not os.path.exists(dir_name):
+                    os.makedirs(dir_name)
+                itr_filename = dir_name + str(COUNTER) + '_' + str(int(stats['EpRewMean'])) + '_' + str(int(stats['EpRewMax'])) + '.pkl'
+                cPickle.dump(agent, open(itr_filename, 'wb'))
         # Plot
         if args.plot:
             animate_rollout(env, agent, min(500, args.timestep_limit))
