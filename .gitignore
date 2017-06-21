@@ -31,3 +31,5 @@ snapshots/
 agent_runs/
 training_agent_runs/
 downloaded_runs/
+tags
+.ropeproject
