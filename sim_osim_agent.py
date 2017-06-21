@@ -23,10 +23,12 @@ logger.setLevel(logging.CRITICAL)
 remote_base = 'http://grader.crowdai.org'
 token = 'a6e5f414845fafd1063253a11429c78f'
 
-def animate_rollout(env, agent, n_timesteps,delay=.01):
+
+def animate_rollout(env, agent, n_timesteps, delay=.01):
     infos = defaultdict(list)
-    ob = env.reset(difficulty=2, seed=1)
-    if hasattr(agent,"reset"): agent.reset()
+    ob = env.reset(difficulty=2, seed=2)
+    if hasattr(agent, "reset"):
+        agent.reset()
     env.render()
     tot_rew = 0.0
     with tqdm(total=2500) as reward_bar:
@@ -38,9 +40,9 @@ def animate_rollout(env, agent, n_timesteps,delay=.01):
             reward_bar.update(max(rew, 0.000001))
             env.render()
             if done:
-                print("\n terminated after %s timesteps"%i)
+                print("\n terminated after %s timesteps" % i)
                 break
-            for (k,v) in info.items():
+            for (k, v) in info.items():
                 infos[k].append(v)
             infos['ob'].append(ob)
             infos['reward'].append(rew)
@@ -48,6 +50,7 @@ def animate_rollout(env, agent, n_timesteps,delay=.01):
 #            time.sleep(delay)
     infos['tot_rew'].append(tot_rew)
     return infos, tot_rew
+
 
 def run_agent_from_infos(infos_file):
     infos = pickle.load(open(infos_file, 'rb'))
@@ -76,6 +79,7 @@ def run_agent_from_infos(infos_file):
     print "\n total reward from client", tot_rew
     return sim_infos, tot_rew
 
+
 def submit_agent_from_infos(infos_file):
     infos = pickle.load(open(infos_file, 'rb'))
     print "totoal reward from infos", infos['tot_rew']
@@ -89,7 +93,6 @@ def submit_agent_from_infos(infos_file):
         infos['ob'] = infos['observation']
     with tqdm(total=2500) as reward_bar:
         for i in tqdm(range(len(infos['reward']))):
-    # for i in range(len(infos['reward'])):
             a = infos['action'][i].tolist()
             # for i in range(len(a)):
             #     if a[i] < 0.0:
@@ -106,7 +109,7 @@ def submit_agent_from_infos(infos_file):
             tot_rew += rew
             reward_bar.update(rew)
             if done:
-                print("\nterminated after %s timesteps"%i)
+                print("\nterminated after %s timesteps" % i)
                 break
             for k, v in info.items():
                 infos[k].append(v)
@@ -119,6 +122,7 @@ def submit_agent_from_infos(infos_file):
     if x.strip() == 'yes':
         client.submit()
     return sim_infos, tot_rew
+
 
 def submit_agent(agent):
     infos = defaultdict(list)
@@ -133,7 +137,7 @@ def submit_agent(agent):
             tot_rew += rew
             reward_bar.update(rew)
             if done:
-                print("terminated after %s timesteps"%i)
+                print("terminated after %s timesteps" % i)
                 break
             for k, v in info.items():
                 infos[k].append(v)
@@ -146,12 +150,12 @@ def submit_agent(agent):
     if x.strip() == 'yes':
         client.submit()
     return infos, tot_rew
-        
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("hdf")
-    parser.add_argument("--timestep_limit",type=int)
+    parser.add_argument("--timestep_limit", type=int)
     parser.add_argument("--snapname")
     parser.add_argument("--submit", type=int, default=0)
     parser.add_argument("--visualize", type=int, default=0)
@@ -159,25 +163,25 @@ def main():
     parser.add_argument("--from_infos", type=str, default='')
     args = parser.parse_args()
 
-    hdf = h5py.File(args.hdf,'r')
+    if args.hdf[-4:] == '.pkl':
+        # agent is loaded from a pickle
+        agent = cPickle.load(open(args.hdf, 'rb'))
+    else:
+        # agent is loaded from hdf
+        hdf = h5py.File(args.hdf, 'r')
+        snapnames = hdf['agent_snapshots'].keys()
+        print "snapshots:\n", snapnames
+        if args.snapname is None:
+            snapname = snapnames[-1]
+        elif args.snapname not in snapnames:
+            raise ValueError("Invalid snapshot name %s" % args.snapname)
+        else:
+            snapname = args.snapname
+        # env = gym.make(hdf["env_id"].value)
+        agent = cPickle.loads(hdf['agent_snapshots'][snapname].value)
 
-    snapnames = hdf['agent_snapshots'].keys()
-    print "snapshots:\n",snapnames
-    if args.snapname is None: 
-        snapname = snapnames[-1]
-    elif args.snapname not in snapnames:
-        raise ValueError("Invalid snapshot name %s"%args.snapname)
-    else: 
-        snapname = args.snapname
+    agent.stochastic = False
 
-    # env = gym.make(hdf["env_id"].value)
-
-    agent = cPickle.loads(hdf['agent_snapshots'][snapname].value)
-    # agent = cPickle.load(open('./snapshots/run_env_test12.h5.dir/2_11_12.pkl', 'rb'))
-    # print './snapshots/run_env_test12.h5.dir/2_11_12.pkl'
-    agent.stochastic=False
-
-    
     if args.from_infos == '':
         if args.submit == 1:
             pass
@@ -185,7 +189,7 @@ def main():
             if args.visualize == 0:
                 env = RunEnv(visualize=False)
             else:
-                env = RunEnv(visualize = True)
+                env = RunEnv(visualize=True)
             timestep_limit = args.timestep_limit or env.spec.timestep_limit
 
         while True:
@@ -193,19 +197,22 @@ def main():
                 infos, tot_rew = submit_agent(agent)
             else:
                 if args.all_snaps == 1:
+                    # gets 5 runs from each available agent snapshot in h5
                     for snapname, agent_pkl in hdf['agent_snapshots'].items():
                         print "***** Snapshot", snapname
                         agent = cPickle.loads(agent_pkl.value)
                         for i in range(5):
                             print "\n"
                             print "run", i
-                            infos, tot_rew = animate_rollout(env,agent,n_timesteps=timestep_limit,
-                                delay=1.0/env.metadata.get('video.frames_per_second', 30))
+                            infos, tot_rew = animate_rollout(env, agent, n_timesteps=timestep_limit)
                             print "\n"
-                            pickle_file = 'agent_runs/' + '_'.join([args.hdf[10:-3], snapname, str(i), str(int(tot_rew)), str(int(time.time()))])
+                            file_attrs = [os.path.basename(args.hdf)[:-3],
+                                          snapname, str(i), str(int(tot_rew)),
+                                          str(int(time.time()))]
+                            pickle_file = 'agent_runs/' + '_'.join(file_attrs)
                             pickle.dump(infos, open(pickle_file, 'wb'))
                 else:
-                    animate_rollout(env, agent, n_timesteps=timestep_limit, delay=1.0)
+                    animate_rollout(env, agent, n_timesteps=timestep_limit)
 
                 # pickle.dump(infos, open('sample_infos.pkl', 'wb'))
             # for (k,v) in infos.items():
