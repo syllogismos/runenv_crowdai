@@ -277,7 +277,8 @@ def rollout(env, agent, timestep_limit):
     return data
 
 
-def do_rollouts_serial(env, agent, timestep_limit, n_timesteps, seed_iter):
+def do_rollouts_serial(env, agent, timestep_limit,
+                       n_timesteps, seed_iter):
     paths = []
     timesteps_sofar = 0
     while True:
