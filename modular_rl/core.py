@@ -240,17 +240,15 @@ def do_rollouts_single_thread(enum_env):
     return thread_paths
 
 
-def rollout(env, agent, timestep_limit):
+def rollout(env, agent, timestep_limit,
+            env_is_none=False, seed=None):
     """
     Simulate the env and agent for timestep_limit steps
     """
-    if env is None:
-        env = RunEnv(visualize=False)
-        ob = env.reset(difficulty=0, seed=None)
-        env_is_none = True
+    if env_is_none:
+        ob = env.reset(difficulty=0, seed=seed)
     else:
         ob = env.reset()
-        env_is_none = False
     terminated = False
 
     data = defaultdict(list)
@@ -271,25 +269,36 @@ def rollout(env, agent, timestep_limit):
             break
     data = {k: np.array(v) for (k, v) in data.iteritems()}
     data["terminated"] = terminated
-    if env_is_none:
-        del(env)
-        env = None
     return data
 
 
 def do_rollouts_serial(env, agent, timestep_limit,
                        n_timesteps, seed_iter):
+
+    if env is None:
+        env = RunEnv(visualize=False)
+        env_is_none = True
+    else:
+        env_is_none = False
+
     paths = []
     timesteps_sofar = 0
     while True:
         rollout_seed = seed_iter.next()
         np.random.seed(rollout_seed)
-        path = rollout(env, agent, timestep_limit)
+        path = rollout(env, agent, timestep_limit,
+                       env_is_none=env_is_none,
+                       seed=rollout_seed)
         path['seed'] = rollout_seed
         paths.append(path)
         timesteps_sofar += pathlength(path)
         if timesteps_sofar > n_timesteps:
             break
+
+    if env_is_none:
+        del(env)
+        env = None
+
     return paths
 
 
