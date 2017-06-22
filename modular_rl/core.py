@@ -15,6 +15,7 @@ import time
 from multiprocessing import Pool
 import psutil
 from osim_helpers import start_osim_apps, stop_osim_apps, ip_config
+from osim.env import RunEnv
 
 concat = np.concatenate
 
@@ -87,7 +88,7 @@ PG_OPTIONS = [
 
 def run_policy_gradient_algorithm(env, agent, threads=1,
                                   destroy_env_every=5, ec2=False,
-                                  usercfg=None, callback=None):
+                                  usercfg=None, callback=None, args=None):
     cfg = update_default_config(PG_OPTIONS, usercfg)
     cfg.update(usercfg)
     print "policy gradient config", cfg
@@ -98,21 +99,30 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
     tstart = time.time()
     seed_iter = itertools.count()
 
-    print "creating servers for the first time"
-    # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
-    # time.sleep(10)
-    # print "craeting envs for the first time"
-    # envs = create_envs(threads)
-    server_states = {}
-    envs = []
-    for con in ip_config:
-        server_states[con['ip']] = start_osim_apps(con['ip'], 8018, con['cores'])
-        time.sleep(10)
-        envs.extend(create_ext_envs(con['ip'], con['cores']))
+    if args.node_config == 1:
+        print "creating servers for the first time"
+        # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
+        # time.sleep(10)
+        # print "craeting envs for the first time"
+        # envs = create_envs(threads)
+        server_states = {}
+        envs = []
+        for con in ip_config:
+            server_states[con['ip']] = start_osim_apps(con['ip'], 8018, con['cores'])
+            time.sleep(10)
+            envs.extend(create_ext_envs(con['ip'], con['cores']))
+        multi_pool_count = len(envs)
+    else:
+        print "creating python envs for the first time"
+        # No need of creating a python envs, can initialize on the thread
+        # directly
+        envs = [None]*args.threads
+        multi_pool_count = args.threads
+        pass
 
     for i in xrange(cfg["n_iter"]):
         # Rollouts ========
-        if i != 0 and i % destroy_env_every == 0:
+        if args.node_config == 1 and i != 0 and i % destroy_env_every == 0:
             # destroy_servers(servers)
             # print "recreating servers again at ", i
             # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
@@ -129,7 +139,6 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
                 print "creating envx at server", con['ip'], con['cores']
                 envs.extend(create_ext_envs(con['ip'], con['cores']))
 
-        multi_pool_count = len(envs)
         paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=multi_pool_count)
         threshold_paths = filter(lambda x: sum(x['reward']) > 2600.0, paths)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
@@ -148,9 +157,10 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
         x = gc.collect()
         print x, 'garbage collected @@@@@@@@@@@@@@@'
     # destroy_servers(servers)
-    for con in ip_config:
-        print "stopping osim envs for the final time at server", con['ip']
-        stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
+    if args.node_config == 1:
+        for con in ip_config:
+            print "stopping osim envs for the final time at server", con['ip']
+            stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
 
 
 def create_envs(threads):
@@ -201,22 +211,29 @@ def destroy_servers(servers):
 def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
     # if envs == None:
     #     envs = [env]
-    pickled_enum = zip(envs, [agent]*threads, [cfg['timestep_limit']]*threads, [cfg['timesteps_per_batch']/threads]*threads)
+    pickled_enum = zip(envs, [agent]*threads, [cfg['timestep_limit']]*threads,
+                       [cfg['timesteps_per_batch']/threads]*threads)
     if threads > 1:
         p = Pool(threads)
-        parallel_paths = p.map(do_rollouts_single_thread, enumerate(pickled_enum))
+        parallel_paths = p.map(do_rollouts_single_thread,
+                               enumerate(pickled_enum))
         p.close()
         p.join()
         paths = list(itertools.chain(*parallel_paths))
         # raise NotImplementedError
     else:
-        paths = do_rollouts_serial(env, agent, cfg["timestep_limit"], cfg["timesteps_per_batch"], seed_iter)
+        paths = do_rollouts_serial(env, agent, cfg["timestep_limit"],
+                                   cfg["timesteps_per_batch"], seed_iter)
     return paths
 
 
 def do_rollouts_single_thread(enum_env):
     seed_iter = itertools.count(enum_env[0]*100)
-    thread_paths = do_rollouts_serial(enum_env[1][0], enum_env[1][1], enum_env[1][2], enum_env[1][3], seed_iter)
+    thread_paths = do_rollouts_serial(enum_env[1][0],
+                                      enum_env[1][1],
+                                      enum_env[1][2],
+                                      enum_env[1][3],
+                                      seed_iter)
     print "no of episodes in this thread,", len(thread_paths)
     print "episode lengths in this thread,", [len(x['reward']) for x in thread_paths]
     print "total rewards in this thread,", [sum(x['reward']) for x in thread_paths]
@@ -227,7 +244,11 @@ def rollout(env, agent, timestep_limit):
     """
     Simulate the env and agent for timestep_limit steps
     """
-    ob = env.reset()
+    if env is None:
+        env = RunEnv(visualize=False)
+        ob = env.reset(difficulty=0, seed=None)
+    else:
+        ob = env.reset()
     terminated = False
 
     data = defaultdict(list)

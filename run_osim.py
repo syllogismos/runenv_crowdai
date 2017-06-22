@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--ec2", type=ast.literal_eval, default=False)
     parser.add_argument("--destroy_env_every", type=int, default=5)
+    parser.add_argument("--node_config", type=int, default=1)
     args, _ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     env = RunEnv(visualize=False)
     env_spec = env.spec
@@ -120,7 +121,8 @@ if __name__ == '__main__':
                                   destroy_env_every=args.destroy_env_every,
                                   ec2=args.ec2,
                                   callback=callback,
-                                  usercfg=cfg)
+                                  usercfg=cfg,
+                                  args=args)
 
     if args.use_hdf:
         hdf['env_id'] = env_spec.id
