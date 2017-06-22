@@ -247,8 +247,10 @@ def rollout(env, agent, timestep_limit):
     if env is None:
         env = RunEnv(visualize=False)
         ob = env.reset(difficulty=0, seed=None)
+        env_is_none = True
     else:
         ob = env.reset()
+        env_is_none = False
     terminated = False
 
     data = defaultdict(list)
@@ -269,6 +271,9 @@ def rollout(env, agent, timestep_limit):
             break
     data = {k: np.array(v) for (k, v) in data.iteritems()}
     data["terminated"] = terminated
+    if env_is_none:
+        del(env)
+        env = None
     return data
 
 
