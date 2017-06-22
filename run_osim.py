@@ -23,17 +23,18 @@ if __name__ == '__main__':
     sys.stdout.flush()
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     update_argument_parser(parser, GENERAL_OPTIONS)
-    parser.add_argument("--env",required=True)
-    parser.add_argument("--agent",required=True)
-    parser.add_argument("--plot",action="store_true")
+    parser.add_argument("--env", required=True)
+    parser.add_argument("--agent", required=True)
+    parser.add_argument("--plot", action="store_true")
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--ec2", type=ast.literal_eval, default=False)
     parser.add_argument("--destroy_env_every", type=int, default=5)
-    args,_ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
+    args, _ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     env = RunEnv(visualize=False)
     env_spec = env.spec
     mondir = args.outfile + ".dir"
-    if os.path.exists(mondir): shutil.rmtree(mondir)
+    if os.path.exists(mondir):
+        shutil.rmtree(mondir)
     os.mkdir(mondir)
     # env = gym.wrappers.Monitor(env, mondir, video_callable=None if args.video else VIDEO_NEVER)
     # env.spec.timestep_limit = 50
@@ -71,22 +72,23 @@ if __name__ == '__main__':
     gym.logger.setLevel(logging.WARN)
 
     COUNTER = 0
+
     def callback(stats, th_paths):
         global COUNTER
         COUNTER += 1
         # Print stats
         print "*********** Iteration %i ****************" % COUNTER
-        print tabulate(filter(lambda (k,v) : np.asarray(v).size==1, stats.items())) #pylint: disable=W0110
+        print tabulate(filter(lambda (k, v): np.asarray(v).size == 1, stats.items()))  # pylint: disable=W0110
         # Store to hdf5
         if args.use_hdf:
-            for (stat,val) in stats.items():
-                if np.asarray(val).ndim==0:
+            for (stat, val) in stats.items():
+                if np.asarray(val).ndim == 0:
                     diagnostics[stat].append(val)
                 else:
                     assert val.ndim == 1
                     diagnostics[stat].extend(val)
-            if args.snapshot_every and ((COUNTER % args.snapshot_every==0) or (COUNTER==args.n_iter)):
-                hdf['/agent_snapshots/%0.4i'%COUNTER] = np.array(cPickle.dumps(agent,-1))
+            if args.snapshot_every and ((COUNTER % args.snapshot_every == 0) or (COUNTER == args.n_iter)):
+                hdf['/agent_snapshots/%0.4i' % COUNTER] = np.array(cPickle.dumps(agent, -1))
                 dir_name = args.outfile + '.dir/'
                 if not os.path.exists(dir_name):
                     os.makedirs(dir_name)
@@ -105,10 +107,10 @@ if __name__ == '__main__':
             #     snapshot_name = 'initial_training'
             outfile_prefix = os.path.basename(args.outfile)[:-3]
             pickle_file = 'training_agent_runs/' + '_'.join([outfile_prefix,
-                                                            str(COUNTER),
-                                                            str(pth['seed']),
-                                                            str(int(total_rew)),
-                                                            str(int(time.time()))])
+                                                             str(COUNTER),
+                                                             str(pth['seed']),
+                                                             str(int(total_rew)),
+                                                             str(int(time.time()))])
             print "Name of the pickle file", pickle_file
             pickle.dump(pth, open(pickle_file, 'wb'))
 
@@ -118,10 +120,12 @@ if __name__ == '__main__':
                                   destroy_env_every=args.destroy_env_every,
                                   ec2=args.ec2,
                                   callback=callback,
-                                  usercfg = cfg)
+                                  usercfg=cfg)
 
     if args.use_hdf:
         hdf['env_id'] = env_spec.id
-        try: hdf['env'] = np.array(cPickle.dumps(env, -1))
-        except Exception: print "failed to pickle env" #pylint: disable=W0703
+        try:
+            hdf['env'] = np.array(cPickle.dumps(env, -1))
+        except Exception:
+            print "failed to pickle env"  # pylint: disable=W0703
     env.close()
