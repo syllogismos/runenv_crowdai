@@ -51,12 +51,20 @@ if __name__ == '__main__':
 
     # loading agent from snapshot logic
     loading_from_snapshot = False
+    loading_from_pickle = False
     if args.load_snapshot != '':
         print "loading agent from snapshot", args.load_snapshot
-        try:
+        # try:
+        if args.load_snapshot[-4:] == '.pkl':
+            print "loading agent from pickle file"
+            # agent is loaded from a pickle file
+            hdff = open(args.load_snapshot, 'rb')
+            loading_from_pickle = True
+        else:
+            print "loading agent from h5"
             hdff = h5py.File(args.load_snapshot, 'r')
             loading_from_snapshot = True
-        except IOError:
+        # except IOError:
             print "No such snapshot exists at path", args.load_snapshot
 
     if loading_from_snapshot:
@@ -64,6 +72,8 @@ if __name__ == '__main__':
         snapname = snapnames[-1]
         print "Loading from snapshot iteration, ", snapname
         agent = cPickle.loads(hdff['agent_snapshots'][snapname].value)
+    elif loading_from_pickle:
+        agent = cPickle.load(hdff)
     else:
         agent = agent_ctor(env.observation_space, env.action_space, cfg)
     # agent = agent_ctor(env.observation_space, env.action_space, cfg)
