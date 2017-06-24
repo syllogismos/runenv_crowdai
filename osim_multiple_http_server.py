@@ -6,15 +6,20 @@ import psutil
 import urlparse
 import requests
 import argparse
+import cPickle
+from modular_rl.core import get_paths
+import gc
 
 PORT_NUMBER = 8018
 
+
 class myHandler(BaseHTTPRequestHandler):
+
     def do_GET(self):
         """
         GET /start_servers?c=32&ip=127.0.0.1
         """
-        if  '/start_servers' in self.path:
+        if '/start_servers' in self.path:
             bits = urlparse.urlparse(self.path)
             server_count = 5
             try:
@@ -32,6 +37,7 @@ class myHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(pids))
         return
+
     def do_POST(self):
         if self.path == '/delete_servers':
             self.data_string = self.rfile.read(int(self.headers['Content-Length']))
@@ -44,6 +50,31 @@ class myHandler(BaseHTTPRequestHandler):
             print "data length", len(server_pids)
             print "server 1", server_pids[0]
             return
+
+        if self.path == '/get_paths':
+            self.data_string = self.rfile.read(int(self.headers['Content-Length']))
+            json_data = json.loads(self.data_string)
+            agent = cPickle.loads(str(json_data['agent']))
+            threads = json_data['threads']
+            cfg = json_data['cfg']
+            envs = [None]*threads
+            paths = get_paths(None, agent, cfg, None, envs=envs, threads=threads)
+            paths_tolist = []
+            for path in paths:
+                path_tolist = {}
+                for key in path.keys():
+                    if key in ['observation', 'action', 'reward', 'prob']:
+                        path_tolist[key] = path[key].tolist()
+                    else:
+                        path_tolist[key] = path[key]
+                paths_tolist.append(path_tolist)
+            gc.collect()
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/javascript')
+            self.end_headers()
+            self.wfile.write(json.dumps(paths_tolist))
+
 
 def destroy_servers(servers):
     print "Destroying env servers"
@@ -60,7 +91,6 @@ def destroy_servers(servers):
             print("process doesnt exist", pid)
             pass
     pass
-
 
 
 if __name__ == '__main__':

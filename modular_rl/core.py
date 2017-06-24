@@ -15,8 +15,10 @@ import time
 from multiprocessing import Pool
 import psutil
 from osim_helpers import start_osim_apps, stop_osim_apps, ip_config
+from osim_helpers import get_paths_from_server
 from osim.env import RunEnv
-
+import random
+import cPickle
 concat = np.concatenate
 
 # ================================================================
@@ -46,6 +48,7 @@ def add_episode_stats(stats, paths):
     stats["EpRewMean"] = episoderewards.mean()
     stats["EpRewSEM"] = episoderewards.std()/np.sqrt(len(paths))
     stats["EpRewMax"] = episoderewards.max()
+    stats["EpRewMin"] = episoderewards.min()
     stats["EpLenMean"] = pathlengths.mean()
     stats["EpLenMax"] = pathlengths.max()
     stats["RewPerStep"] = episoderewards.sum()/pathlengths.sum()
@@ -100,18 +103,38 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
     seed_iter = itertools.count()
 
     if args.node_config == 1:
-        print "creating servers for the first time"
-        # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
-        # time.sleep(10)
-        # print "craeting envs for the first time"
-        # envs = create_envs(threads)
-        server_states = {}
-        envs = []
-        for con in ip_config:
-            server_states[con['ip']] = start_osim_apps(con['ip'], 8018, con['cores'])
-            time.sleep(10)
-            envs.extend(create_ext_envs(con['ip'], con['cores']))
-        multi_pool_count = len(envs)
+        if args.http_gym_api == 1:
+            """
+            creates http gym clients based on the config file and
+            the master node contains all the http gym clients and steps
+            through the env through http. Here every single step call goes
+            through http
+            """
+            print "creating servers for the first time"
+            print "Using http gym api"
+            # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
+            # time.sleep(10)
+            # print "craeting envs for the first time"
+            # envs = create_envs(threads)
+            server_states = {}
+            envs = []
+            for con in ip_config:
+                if 'port' in con:
+                    port = con['port']
+                else:
+                    port = 8018
+                server_states[con['ip']] = start_osim_apps(con['ip'], port, con['cores'])
+                time.sleep(10)
+                envs.extend(create_ext_envs(con['ip'], con['cores']))
+            multi_pool_count = len(envs)
+        else:
+            """
+            Instead of using http gym api, we directly send the agent to the
+            slave nodes and these individual nodes compute the paths locally
+            and send them back to the master node.
+            """
+            print "Not using http gym api"
+            pass
     else:
         print "creating python envs for the first time"
         # No need of creating a python envs, can initialize on the thread
@@ -122,7 +145,10 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
 
     for i in xrange(cfg["n_iter"]):
         # Rollouts ========
-        if args.node_config == 1 and i != 0 and i % destroy_env_every == 0:
+        if args.node_config == 1 and \
+                args.http_gym_api == 1 and \
+                i != 0 and \
+                i % destroy_env_every == 0:
             # destroy_servers(servers)
             # print "recreating servers again at ", i
             # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
@@ -131,15 +157,40 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             # envs = create_envs(threads)
             envs = []
             for con in ip_config:
+                if 'port' in con:
+                    port = con['port']
+                else:
+                    port = 8018
                 print "stopping osim envs at server", con['ip']
-                stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
+                print server_states
+                stop_osim_apps(con['ip'], port, server_states[con['ip']])
                 print "starting osim envs at server", con['ip']
-                server_states[con['ip']] = start_osim_apps(con['ip'], 8018, con['cores'])
+                server_states[con['ip']] = start_osim_apps(con['ip'], port, con['cores'])
                 time.sleep(10)
                 print "creating envx at server", con['ip'], con['cores']
                 envs.extend(create_ext_envs(con['ip'], con['cores']))
 
-        paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=multi_pool_count)
+        if args.node_config == 1 and \
+                args.http_gym_api != 1:
+            """
+            Sending agent to all the slaves and computing paths locally
+            """
+            agent_dump = cPickle.dumps(agent)
+            paths = []
+            for con in ip_config:
+                if 'port' in con:
+                    port = con['port']
+                else:
+                    port = 8018
+                paths.extend(get_paths_from_server(con['ip'], con['port'],
+                                                   agent_dump, cfg,
+                                                   con['cores']))
+        else:
+            """
+            Computing all the paths from master node
+            """
+            paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=multi_pool_count)
+
         threshold_paths = filter(lambda x: sum(x['reward']) > 2600.0, paths)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
         # VF Update ========
@@ -157,7 +208,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
         x = gc.collect()
         print x, 'garbage collected @@@@@@@@@@@@@@@'
     # destroy_servers(servers)
-    if args.node_config == 1:
+    if args.node_config == 1 and args.http_gym_api == 1:
         for con in ip_config:
             print "stopping osim envs for the final time at server", con['ip']
             stop_osim_apps(con['ip'], 8018, server_states[con['ip']])
@@ -228,7 +279,11 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
 
 
 def do_rollouts_single_thread(enum_env):
-    seed_iter = itertools.count(enum_env[0]*100)
+    seed_iter_seed = 0
+    while seed_iter_seed == 0:
+        seed_iter_seed = int(random.random()*27000)*(enum_env[0]+1)*100
+    print "seed_iter_seed is", seed_iter_seed
+    seed_iter = itertools.count(seed_iter_seed)
     thread_paths = do_rollouts_serial(enum_env[1][0],
                                       enum_env[1][1],
                                       enum_env[1][2],
@@ -254,13 +309,18 @@ def rollout(env, agent, timestep_limit,
     data = defaultdict(list)
     for _ in xrange(timestep_limit):
         ob = agent.obfilt(ob)
+        # print type(ob), 'observation type'
         data["observation"].append(ob)
         action, agentinfo = agent.act(ob)
         data["action"].append(action)
+        # print type(action), 'action type'
         for (k, v) in agentinfo.iteritems():
+            # print k
+            # print type(v)
             data[k].append(v)
         ob, rew, done, envinfo = env.step(action)
         data["reward"].append(rew)
+        # print type(rew), 'reward type'
         rew = agent.rewfilt(rew)
         for (k, v) in envinfo.iteritems():
             data[k].append(v)
@@ -269,6 +329,8 @@ def rollout(env, agent, timestep_limit,
             break
     data = {k: np.array(v) for (k, v) in data.iteritems()}
     data["terminated"] = terminated
+    # print type(data)
+    # print type(data['reward'])
     return data
 
 

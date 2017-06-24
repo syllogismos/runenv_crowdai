@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("--ec2", type=ast.literal_eval, default=False)
     parser.add_argument("--destroy_env_every", type=int, default=5)
     parser.add_argument("--node_config", type=int, default=1)
+    parser.add_argument("--http_gym_api", type=int, default=1)
     args, _ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     env = RunEnv(visualize=False)
     env_spec = env.spec
