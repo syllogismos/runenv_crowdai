@@ -177,7 +177,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             """
             agent_dump = cPickle.dumps(agent)
             paths = []
-            parallel_config = zip(ip_config, [agent_dump]*len(ip_config)
+            parallel_config = zip(ip_config, [agent_dump]*len(ip_config),
                                   [cfg]*len(ip_config))
             p = Pool(len(ip_config))
             parallel_paths = p.map(get_paths_from_server_lambda,
