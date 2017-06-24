@@ -76,9 +76,11 @@ def get_paths_from_server_lambda(parallel_config):
         port = con['port']
     else:
         port = 8018
+    cfg = parallel_config[2]
+    cfg['timesteps_per_batch'] = con['cores']*cfg['timesteps_per_core']
     paths = get_paths_from_server(con['ip'], port,
                                   parallel_config[1],
-                                  parallel_config[2],
+                                  cfg,
                                   con['cores'])
     return paths
 

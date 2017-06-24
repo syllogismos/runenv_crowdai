@@ -179,6 +179,9 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             paths = []
             parallel_config = zip(ip_config, [agent_dump]*len(ip_config),
                                   [cfg]*len(ip_config))
+            total_cores = sum(map(lambda x: x['cores'], ip_config))
+            steps_per_core = cfg['timesteps_per_batch']/total_cores
+            cfg['timesteps_per_core'] = steps_per_core
             p = Pool(len(ip_config))
             parallel_paths = p.map(get_paths_from_server_lambda,
                                    parallel_config)
