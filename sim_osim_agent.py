@@ -26,7 +26,7 @@ token = 'a6e5f414845fafd1063253a11429c78f'
 
 def animate_rollout(env, agent, n_timesteps, delay=.01):
     infos = defaultdict(list)
-    ob = env.reset(difficulty=2, seed=2)
+    ob = env.reset(difficulty=2, seed=None)
     if hasattr(agent, "reset"):
         agent.reset()
     env.render()
@@ -49,6 +49,7 @@ def animate_rollout(env, agent, n_timesteps, delay=.01):
             infos['action'].append(a)
 #            time.sleep(delay)
     infos['tot_rew'].append(tot_rew)
+    print 'total reward is', tot_rew
     return infos, tot_rew
 
 

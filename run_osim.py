@@ -65,7 +65,7 @@ if __name__ == '__main__':
             hdff = h5py.File(args.load_snapshot, 'r')
             loading_from_snapshot = True
         # except IOError:
-            print "No such snapshot exists at path", args.load_snapshot
+            # print "No such snapshot exists at path", args.load_snapshot
 
     if loading_from_snapshot:
         snapnames = hdff['agent_snapshots'].keys()
