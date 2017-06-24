@@ -15,7 +15,7 @@ import time
 from multiprocessing import Pool
 import psutil
 from osim_helpers import start_osim_apps, stop_osim_apps, ip_config
-from osim_helpers import get_paths_from_server
+from osim_helpers import get_paths_from_server_lambda
 from osim.env import RunEnv
 import random
 import cPickle
@@ -177,14 +177,23 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             """
             agent_dump = cPickle.dumps(agent)
             paths = []
-            for con in ip_config:
-                if 'port' in con:
-                    port = con['port']
-                else:
-                    port = 8018
-                paths.extend(get_paths_from_server(con['ip'], port,
-                                                   agent_dump, cfg,
-                                                   con['cores']))
+            parallel_config = zip(ip_config, [agent_dump]*len(ip_config)
+                                  [cfg]*len(ip_config))
+            p = Pool(len(ip_config))
+            parallel_paths = p.map(get_paths_from_server_lambda,
+                                   parallel_config)
+            p.close()
+            p.join()
+            paths = list(itertools.chain(*parallel_paths))
+
+            # for con in ip_config:
+            #     if 'port' in con:
+            #         port = con['port']
+            #     else:
+            #         port = 8018
+            #     paths.extend(get_paths_from_server(con['ip'], port,
+            #                                        agent_dump, cfg,
+            #                                        con['cores']))
         else:
             """
             Computing all the paths from master node

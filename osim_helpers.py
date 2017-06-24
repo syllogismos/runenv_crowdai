@@ -70,6 +70,19 @@ def get_paths_from_server(ip, port, agent, cfg, threads=1):
     return paths_np
 
 
+def get_paths_from_server_lambda(parallel_config):
+    con = parallel_config[0]
+    if 'port' in con:
+        port = con['port']
+    else:
+        port = 8018
+    paths = get_paths_from_server(con['ip'], port,
+                                  parallel_config[1],
+                                  parallel_config[2],
+                                  con['cores'])
+    return paths
+
+
 def stop_osim_apps(ip, port, pids):
     url = "http://" + ip + ":" + str(port) + "/delete_servers"
     print url
