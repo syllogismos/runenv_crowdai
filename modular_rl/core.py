@@ -182,7 +182,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
                     port = con['port']
                 else:
                     port = 8018
-                paths.extend(get_paths_from_server(con['ip'], con['port'],
+                paths.extend(get_paths_from_server(con['ip'], port,
                                                    agent_dump, cfg,
                                                    con['cores']))
         else:
