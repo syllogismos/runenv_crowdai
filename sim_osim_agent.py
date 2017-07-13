@@ -19,9 +19,8 @@ from osim_http_mrl_client import Client as mrl_client
 logger = logging.getLogger('osim.http.client')
 logger.setLevel(logging.CRITICAL)
 
-
-remote_base = 'http://grader.crowdai.org'
-token = 'a6e5f414845fafd1063253a11429c78f'
+remote_base = 'http://grader.crowdai.org:1729'
+token = 'b97ecc86c6e23bda7b2ee8771942cb9c'
 
 
 def animate_rollout(env, agent, n_timesteps, delay=.01):
@@ -131,15 +130,23 @@ def submit_agent(agent):
     ob = client.env_create(token)
     tot_rew = 0.0
     with tqdm(total=2500) as reward_bar:
-        for i in tqdm(range(501)):
+        # for i in tqdm(range(501)):
+        i = 0
+        j = 0
+        while True:
+            i += 1
             ob = agent.obfilt(ob)
             a, _info = agent.act(ob)
             ob, rew, done, info = client.env_step(a.tolist(), True)
             tot_rew += rew
-            reward_bar.update(rew)
+            reward_bar.update(max(rew, 0))
             if done:
+                j += 1
                 print("terminated after %s timesteps" % i)
-                break
+                print("terminated the %s episode" % j)
+                ob = client.env_reset()
+                if not ob:
+                    break
             for k, v in info.items():
                 infos[k].append(v)
             infos['ob'].append(ob)
