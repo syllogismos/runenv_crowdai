@@ -110,6 +110,8 @@ if __name__ == '__main__':
         if args.plot:
             animate_rollout(env, agent, min(500, args.timestep_limit))
         print "dumping these no of path pickles", len(th_paths)
+        if not os.path.exists('training_agent_runs'):
+            os.makedirs('training_agent_runs')
         for pth in th_paths:
             total_rew = sum(pth['reward'])
             pth['tot_rew'] = total_rew
