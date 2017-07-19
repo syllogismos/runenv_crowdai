@@ -13,6 +13,7 @@ import gym
 from osim.env import RunEnv
 import ast
 import pickle
+from osim_helpers import redis_config
 # import newrelic.agent
 
 # # application = newrelic.agent.register_application(timeout=10.0)
@@ -31,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument("--destroy_env_every", type=int, default=5)
     parser.add_argument("--node_config", type=int, default=1)
     parser.add_argument("--http_gym_api", type=int, default=1)
+    parser.add_argument("--redis", type=int, default=0)
     args, _ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     env = RunEnv(visualize=False)
     env_spec = env.spec
@@ -48,6 +50,8 @@ if __name__ == '__main__':
     if args.timestep_limit == 0:
         args.timestep_limit = env_spec.timestep_limit
     cfg = args.__dict__
+    cfg['redis_h'] = redis_config['host']
+    cfg['redis_p'] = redis_config['port']
     np.random.seed(args.seed)
 
     # loading agent from snapshot logic

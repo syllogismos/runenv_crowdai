@@ -16,9 +16,11 @@ from multiprocessing import Pool
 import psutil
 from osim_helpers import start_osim_apps, stop_osim_apps, ip_config
 from osim_helpers import get_paths_from_server_lambda
+from osim_helpers import redis_config
 from osim.env import RunEnv
 import random
 import cPickle
+import redis
 concat = np.concatenate
 
 # ================================================================
@@ -274,8 +276,26 @@ def destroy_servers(servers):
 def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
     # if envs == None:
     #     envs = [env]
+
+    if cfg['redis'] == 1:
+        redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
+    else:
+        redis_conn = None
+
     pickled_enum = zip(envs, [agent]*threads, [cfg['timestep_limit']]*threads,
-                       [cfg['timesteps_per_batch']/threads]*threads)
+                       [cfg['timesteps_per_batch']/threads]*threads,
+                       [cfg]*threads)
+#
+#    if use_redis:
+#        p = Pool(threads)
+#        parallel_paths = p.map(do_rollouts_single_thread_redis,
+#                               enumerate(pickled_enum))
+#        p.close()
+#        p.join()
+#        paths = list(itertools.chain(*parallel_paths))
+#        pass
+
+#    else:
     if threads > 1:
         p = Pool(threads)
         parallel_paths = p.map(do_rollouts_single_thread,
@@ -287,20 +307,27 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
     else:
         paths = do_rollouts_serial(env, agent, cfg["timestep_limit"],
                                    cfg["timesteps_per_batch"], seed_iter)
+
+    if redis_conn:
+        redis_conn.set('curr_batch_size', 0)
+
     return paths
 
 
 def do_rollouts_single_thread(enum_env):
+
     seed_iter_seed = 0
     while seed_iter_seed == 0:
         seed_iter_seed = int(random.random()*27000)*(enum_env[0]+1)*100
     print "seed_iter_seed is", seed_iter_seed
+
     seed_iter = itertools.count(seed_iter_seed)
     thread_paths = do_rollouts_serial(enum_env[1][0],
                                       enum_env[1][1],
                                       enum_env[1][2],
                                       enum_env[1][3],
-                                      seed_iter)
+                                      seed_iter,
+                                      enum_env[1][4])
     print "no of episodes in this thread,", len(thread_paths)
     print "episode lengths in this thread,", [len(x['reward']) for x in thread_paths]
     print "total rewards in this thread,", [sum(x['reward']) for x in thread_paths]
@@ -308,7 +335,8 @@ def do_rollouts_single_thread(enum_env):
 
 
 def rollout(env, agent, timestep_limit,
-            env_is_none=False, seed=None):
+            env_is_none=False, seed=None,
+            redis_conn=None, cfg=None):
     """
     Simulate the env and agent for timestep_limit steps
     """
@@ -319,7 +347,21 @@ def rollout(env, agent, timestep_limit,
     terminated = False
 
     data = defaultdict(list)
-    for _ in xrange(timestep_limit):
+
+    for i in xrange(timestep_limit):
+
+        if i % 20 == 0:
+            # checking if the we reached the batch size
+            if redis_conn is not None:
+                curr_batch_size = redis_conn.get('curr_batch_size')
+                if curr_batch_size is None:
+                    curr_batch_size == 0
+                else:
+                    curr_batch_size = int(curr_batch_size)
+            if curr_batch_size > cfg['timesteps_per_batch']:
+                print "stopped collecting data in the middle"
+                break
+
         ob = agent.obfilt(ob)
         # print type(ob), 'observation type'
         data["observation"].append(ob)
@@ -341,13 +383,14 @@ def rollout(env, agent, timestep_limit,
             break
     data = {k: np.array(v) for (k, v) in data.iteritems()}
     data["terminated"] = terminated
+    print data["terminated"], len(data['reward'])
     # print type(data)
     # print type(data['reward'])
     return data
 
 
 def do_rollouts_serial(env, agent, timestep_limit,
-                       n_timesteps, seed_iter):
+                       n_timesteps, seed_iter, cfg=None):
 
     if env is None:
         env = RunEnv(visualize=False)
@@ -356,18 +399,49 @@ def do_rollouts_serial(env, agent, timestep_limit,
         env_is_none = False
 
     paths = []
-    timesteps_sofar = 0
-    while True:
-        rollout_seed = seed_iter.next()
-        np.random.seed(rollout_seed)
-        path = rollout(env, agent, timestep_limit,
-                       env_is_none=env_is_none,
-                       seed=rollout_seed)
-        path['seed'] = rollout_seed
-        paths.append(path)
-        timesteps_sofar += pathlength(path)
-        if timesteps_sofar > n_timesteps:
-            break
+
+    if cfg['redis'] == 1:
+        use_redis = True
+        redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
+    else:
+        use_redis = False
+        redis_conn = None
+
+    if use_redis:
+        while True:
+            rollout_seed = seed_iter.next()
+            np.random.seed(rollout_seed)
+            curr_batch_size = redis_conn.get('curr_batch_size')
+            if curr_batch_size is None:
+                curr_batch_size = 0
+            else:
+                curr_batch_size = int(curr_batch_size)
+            if curr_batch_size < cfg['timesteps_per_batch']:
+                path = rollout(env, agent, timestep_limit,
+                               env_is_none=env_is_none,
+                               seed=rollout_seed,
+                               redis_conn=redis_conn,
+                               cfg=cfg)
+                path['seed'] = rollout_seed
+                if path['terminated']:
+                    paths.append(path)
+                    redis_conn.incrby('curr_batch_size', len(path['reward']))
+            else:
+                break
+
+    else:
+        timesteps_sofar = 0
+        while True:
+            rollout_seed = seed_iter.next()
+            np.random.seed(rollout_seed)
+            path = rollout(env, agent, timestep_limit,
+                           env_is_none=env_is_none,
+                           seed=rollout_seed)
+            path['seed'] = rollout_seed
+            paths.append(path)
+            timesteps_sofar += pathlength(path)
+            if timesteps_sofar > n_timesteps:
+                break
 
     if env_is_none:
         del(env)
