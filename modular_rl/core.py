@@ -350,14 +350,13 @@ def rollout(env, agent, timestep_limit,
 
     for i in xrange(timestep_limit):
 
-        if i % 20 == 0:
+        if (i % 20 == 0) and (redis_conn is not None):
             # checking if the we reached the batch size
-            if redis_conn is not None:
-                curr_batch_size = redis_conn.get('curr_batch_size')
-                if curr_batch_size is None:
-                    curr_batch_size == 0
-                else:
-                    curr_batch_size = int(curr_batch_size)
+            curr_batch_size = redis_conn.get('curr_batch_size')
+            if curr_batch_size is None:
+                curr_batch_size == 0
+            else:
+                curr_batch_size = int(curr_batch_size)
             if curr_batch_size > cfg['timesteps_per_batch']:
                 print "stopped collecting data in the middle"
                 break
