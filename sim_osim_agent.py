@@ -25,7 +25,7 @@ token = 'b97ecc86c6e23bda7b2ee8771942cb9c'
 
 def animate_rollout(env, agent, n_timesteps, delay=.01):
     infos = defaultdict(list)
-    ob = env.reset(difficulty=2, seed=None)
+    ob = env.reset(difficulty=0, seed=None)
     if hasattr(agent, "reset"):
         agent.reset()
     env.render()
@@ -55,8 +55,8 @@ def animate_rollout(env, agent, n_timesteps, delay=.01):
 def run_agent_from_infos(infos_file):
     infos = pickle.load(open(infos_file, 'rb'))
     print 'total reward from infos', infos['tot_rew']
-    env = GaitEnv(visualize=False)
-    ob = env.reset()
+    env = RunEnv(visualize=False)
+    ob = env.reset(difficulty=0, seed=None)
     tot_rew = 0.0
     if 'observation' in infos:
         infos['ob'] = infos['observation']
