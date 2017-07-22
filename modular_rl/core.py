@@ -182,8 +182,11 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             parallel_config = zip(ip_config, [agent_dump]*len(ip_config),
                                   [cfg]*len(ip_config))
             total_cores = sum(map(lambda x: x['cores'], ip_config))
-            steps_per_core = cfg['timesteps_per_batch']/total_cores
-            cfg['timesteps_per_core'] = steps_per_core
+            if args.redis != 1:
+                # if using redis, we share the total batchsize through out
+                # all the machines, other wise every node will be seperate
+                steps_per_core = cfg['timesteps_per_batch']/total_cores
+                cfg['timesteps_per_core'] = steps_per_core
             p = Pool(len(ip_config))
             parallel_paths = p.map(get_paths_from_server_lambda,
                                    parallel_config)
@@ -204,6 +207,12 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             Computing all the paths from master node
             """
             paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=multi_pool_count)
+
+        if args.redis == 1:
+            redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
+            redis_conn.set('curr_batch_size', 0)
+        else:
+            redis_conn = None
 
         threshold_paths = filter(lambda x: sum(x['reward']) > 2600.0, paths)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
@@ -277,10 +286,10 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
     # if envs == None:
     #     envs = [env]
 
-    if cfg['redis'] == 1:
-        redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
-    else:
-        redis_conn = None
+    # if cfg['redis'] == 1:
+    #     redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
+    # else:
+    #     redis_conn = None
 
     pickled_enum = zip(envs, [agent]*threads, [cfg['timestep_limit']]*threads,
                        [cfg['timesteps_per_batch']/threads]*threads,
@@ -308,8 +317,8 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
         paths = do_rollouts_serial(env, agent, cfg["timestep_limit"],
                                    cfg["timesteps_per_batch"], seed_iter)
 
-    if redis_conn:
-        redis_conn.set('curr_batch_size', 0)
+    # if redis_conn:
+    #     redis_conn.set('curr_batch_size', 0)
 
     return paths
 
