@@ -1,0 +1,30 @@
+diff --git a/osim_http_server.py b/osim_http_server.py
+index 06488b6..4e748d2 100755
+--- a/osim_http_server.py
++++ b/osim_http_server.py
+@@ -1,4 +1,4 @@
+-#!/Users/anil/anaconda2/bin/python
++#!/home/anil/anaconda2/bin/python
+ """
+ change the python executable to /home/ubuntu/anaconda2/bin/python
+ and make sys.path = ec2_python_path + sys.path
+diff --git a/osim_multiple_http_server.py b/osim_multiple_http_server.py
+index 075d04b..85252d6 100644
+--- a/osim_multiple_http_server.py
++++ b/osim_multiple_http_server.py
+@@ -31,7 +31,7 @@ class myHandler(BaseHTTPRequestHandler):
+                 server_ip = str(urlparse.parse_qs(bits.query)['ip'][0])
+             except:
+                 print "no ip attribute"
+-            pids = map(lambda x: start_env_server(x, ec2=False, l=server_ip), range(server_count))
++            pids = map(lambda x: start_env_server(x, ec2=True, l=server_ip), range(server_count))
+             self.send_response(200)
+             self.send_header('Content-type', 'application/javascript')
+             self.end_headers()
+@@ -101,4 +101,4 @@ if __name__ == '__main__':
+     server = HTTPServer((args.listen, args.port), myHandler)
+     print "started httpserver on port", args.listen, args.port
+ 
+-    server.serve_forever()
+\ No newline at end of file
++    server.serve_forever()
