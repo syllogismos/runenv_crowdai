@@ -350,7 +350,7 @@ def rollout(env, agent, timestep_limit,
 
     for i in xrange(timestep_limit):
 
-        if (i % 20 == 0) and (redis_conn is not None):
+        if (i % 3 == 0) and (redis_conn is not None):
             # checking if the we reached the batch size
             curr_batch_size = redis_conn.get('curr_batch_size')
             if curr_batch_size is None:
