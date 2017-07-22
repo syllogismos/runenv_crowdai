@@ -83,7 +83,10 @@ def get_paths_from_server_lambda(parallel_config):
     else:
         port = 8018
     cfg = parallel_config[2]
-    cfg['timesteps_per_batch'] = con['cores']*cfg['timesteps_per_core']
+    if cfg['redis'] != 1:
+        cfg['timesteps_per_batch'] = con['cores']*cfg['timesteps_per_core']
+        # if using redis, we share the total batchsize through out
+        # all the machines, other wise every node will be seperate
     paths = get_paths_from_server(con['ip'], port,
                                   parallel_config[1],
                                   cfg,
