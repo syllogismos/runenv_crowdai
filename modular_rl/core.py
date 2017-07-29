@@ -391,6 +391,8 @@ def rollout(env, agent, timestep_limit,
             break
     data = {k: np.array(v) for (k, v) in data.iteritems()}
     data["terminated"] = terminated
+    if 'reward' not in data:
+        data['reward'] = []
     print data["terminated"], len(data['reward'])
     # print type(data)
     # print type(data['reward'])
