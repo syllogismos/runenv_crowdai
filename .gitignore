@@ -33,3 +33,4 @@ training_agent_runs/
 downloaded_runs/
 tags
 .ropeproject
+temp/

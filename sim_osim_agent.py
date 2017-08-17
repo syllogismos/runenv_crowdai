@@ -23,18 +23,23 @@ remote_base = 'http://grader.crowdai.org:1729'
 token = 'b97ecc86c6e23bda7b2ee8771942cb9c'
 
 
-def animate_rollout(env, agent, n_timesteps, delay=.01):
+def animate_rollout(env, agent, n_timesteps,
+                    difficulty=0, delay=.01):
     infos = defaultdict(list)
-    ob = env.reset(difficulty=0, seed=None)
+    agent.stochastic = True
+    ob = env.reset(difficulty=difficulty, seed=1)
     if hasattr(agent, "reset"):
         agent.reset()
     env.render()
     tot_rew = 0.0
-    with tqdm(total=2500) as reward_bar:
+    with tqdm(total=25) as reward_bar:
         for i in tqdm(range(n_timesteps)):
-            ob = agent.obfilt(ob)
+            # for i in range(n_timesteps):
+            # ob = agent.obfilter(ob, update=False)
+            ob = agent.obfilter(ob, update=True)
             a, _info = agent.act(ob)
             (ob, rew, done, info) = env.step(a)
+            # print rew, env.current_state[1] - env.last_state[1], env.last_state[1], env.current_state[1]
             tot_rew += rew
             reward_bar.update(max(rew, 0.000001))
             env.render()
@@ -129,7 +134,7 @@ def submit_agent(agent):
     client = Client(remote_base)
     ob = client.env_create(token)
     tot_rew = 0.0
-    with tqdm(total=2500) as reward_bar:
+    with tqdm(total=25) as reward_bar:
         # for i in tqdm(range(501)):
         i = 0
         j = 0
@@ -169,6 +174,7 @@ def main():
     parser.add_argument("--visualize", type=int, default=0)
     parser.add_argument("--all_snaps", type=int, default=0)
     parser.add_argument("--from_infos", type=str, default='')
+    parser.add_argument("--difficulty", type=int, default=0)
     args = parser.parse_args()
 
     if args.hdf[-4:] == '.pkl':
@@ -212,7 +218,10 @@ def main():
                         for i in range(5):
                             print "\n"
                             print "run", i
-                            infos, tot_rew = animate_rollout(env, agent, n_timesteps=timestep_limit)
+                            infos, tot_rew = animate_rollout(env,
+                                                             agent,
+                                                             n_timesteps=timestep_limit,
+                                                             difficulty=args.difficulty)
                             print "\n"
                             file_attrs = [os.path.basename(args.hdf)[:-3],
                                           snapname, str(i), str(int(tot_rew)),
@@ -220,7 +229,9 @@ def main():
                             pickle_file = 'agent_runs/' + '_'.join(file_attrs)
                             pickle.dump(infos, open(pickle_file, 'wb'))
                 else:
-                    animate_rollout(env, agent, n_timesteps=timestep_limit)
+                    animate_rollout(env, agent,
+                                    n_timesteps=timestep_limit,
+                                    difficulty=args.difficulty)
 
                 # pickle.dump(infos, open('sample_infos.pkl', 'wb'))
             # for (k,v) in infos.items():

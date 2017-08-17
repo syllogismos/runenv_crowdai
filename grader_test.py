@@ -32,7 +32,6 @@ def get_obs_g(a):
     # resets local env and takes a single step with given activation a
     init = g.reset()
     return g.step(a)[0].tolist()
-
 if __name__ == '__main__':
     a = [0.9]*18 # prints True
     print "activation", a
