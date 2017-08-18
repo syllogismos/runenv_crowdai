@@ -315,7 +315,8 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
         # raise NotImplementedError
     else:
         paths = do_rollouts_serial(env, agent, cfg["timestep_limit"],
-                                   cfg["timesteps_per_batch"], seed_iter)
+                                   cfg["timesteps_per_batch"], seed_iter,
+                                   cfg)
 
     # if redis_conn:
     #     redis_conn.set('curr_batch_size', 0)

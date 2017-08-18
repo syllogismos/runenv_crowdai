@@ -25,38 +25,39 @@ token = 'b97ecc86c6e23bda7b2ee8771942cb9c'
 
 def animate_rollout(env, agent, n_timesteps, delay=.01):
     infos = defaultdict(list)
-    ob = env.reset(difficulty=0, seed=None)
+    ob = env.reset(difficulty=2, seed=None)
     if hasattr(agent, "reset"):
         agent.reset()
     env.render()
     tot_rew = 0.0
-    tot_rew_orig = tot_rew3 = tot_rew4 = tot_rew5 = tot_rew6 = tot_rew7 = tot_rew8 = tot_rew9 = 0.0
+#     tot_rew_orig = tot_rew3 = tot_rew4 = tot_rew5 = tot_rew6 = tot_rew7 = tot_rew8 = tot_rew9 = 0.0
     # with tqdm(total=2500) as reward_bar:
     # for i in tqdm(range(n_timesteps)):
-    for i in range(n_timesteps):
+    for i in tqdm(range(n_timesteps)):
+        infos['ob'].append(ob)
         ob = agent.obfilt(ob)
         a, _info = agent.act(ob)
         (ob, rew, done, info) = env.step(a)
-        old = info['data'][0]
-        new = info['data'][1]
-        lig = info['data'][2]
-        delta = new - old
-        rew_orig = new - lig*0.0001
-        rew3 = delta - lig*1e-3
-        rew4 = delta - lig*1e-4
-        rew5 = delta - lig*1e-5
-        rew6 = delta - lig*1e-6
-        rew7 = delta - lig*1e-7
-        rew8 = delta - lig*1e-8
-        rew9 = delta - lig*1e-9
-        tot_rew_orig += rew_orig
-        tot_rew3 += rew3
-        tot_rew4 += rew4
-        tot_rew5 += rew5
-        tot_rew6 += rew6
-        tot_rew7 += rew7
-        tot_rew8 += rew8
-        tot_rew9 += rew9
+#         old = info['data'][0]
+#         new = info['data'][1]
+#         lig = info['data'][2]
+#         delta = new - old
+#         rew_orig = new - lig*0.0001
+#         rew3 = delta - lig*1e-3
+#         rew4 = delta - lig*1e-4
+#         rew5 = delta - lig*1e-5
+#         rew6 = delta - lig*1e-6
+#         rew7 = delta - lig*1e-7
+#         rew8 = delta - lig*1e-8
+#         rew9 = delta - lig*1e-9
+#         tot_rew_orig += rew_orig
+#         tot_rew3 += rew3
+#         tot_rew4 += rew4
+#         tot_rew5 += rew5
+#         tot_rew6 += rew6
+#         tot_rew7 += rew7
+#         tot_rew8 += rew8
+#         tot_rew9 += rew9
         # print rew, env.current_state[1] - env.last_state[1], env.last_state[1], env.current_state[1]
         tot_rew += rew
         # reward_bar.update(max(rew, 0.000001))
@@ -66,14 +67,14 @@ def animate_rollout(env, agent, n_timesteps, delay=.01):
             break
         for (k, v) in info.items():
             infos[k].append(v)
-        infos['ob'].append(ob)
         infos['reward'].append(rew)
         infos['action'].append(a)
 #            time.sleep(delay)
     infos['tot_rew'].append(tot_rew)
-    print 'total reward is', tot_rew, i
-    print 'total_distance_travelled', new
-    print tot_rew_orig, tot_rew3, tot_rew4, tot_rew5, tot_rew6, tot_rew7, tot_rew8, tot_rew9
+    # print 'total reward is', tot_rew, i
+    # print 'total_distance_travelled', new
+    # print tot_rew_orig, tot_rew3, tot_rew4, tot_rew5, tot_rew6, tot_rew7, tot_rew8, tot_rew9
+    pickle.dump(infos, open('test_run.pkl', 'wb'))
 
     return infos, tot_rew
 
