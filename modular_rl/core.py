@@ -351,7 +351,7 @@ def rollout(env, agent, timestep_limit,
     Simulate the env and agent for timestep_limit steps
     """
     if env_is_none:
-        ob = env.reset(difficulty=0, seed=seed)
+        ob = env.reset(difficulty=2, seed=seed)
     else:
         ob = env.reset()
     terminated = False
@@ -434,9 +434,11 @@ def do_rollouts_serial(env, agent, timestep_limit,
                                redis_conn=redis_conn,
                                cfg=cfg)
                 path['seed'] = rollout_seed
-                if path['terminated']:
-                    paths.append(path)
-                    redis_conn.incrby('curr_batch_size', len(path['reward']))
+                # if path['terminated']:
+                #     paths.append(path)
+                #     redis_conn.incrby('curr_batch_size', len(path['reward']))
+                paths.append(path)
+                redis_conn.incrby('curr_batch_size', len(path['reward']))
             else:
                 break
 
