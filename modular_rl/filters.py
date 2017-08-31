@@ -1,5 +1,6 @@
 from .running_stat import RunningStat
 import numpy as np
+import copy
 
 
 class Composition(object):
@@ -59,22 +60,23 @@ class RelativeFilter(object):
 
     def __call__(self, x):
         # compute relative x's of other body parts wrt pelvis
+        dx = copy.copy(x)
         pelvis_x = x[1]
         head_x = x[22]
 # removed pelvix_x observations completely
-        x[1] = head_x - x[28]  # relative position of head and left toe
-        x[24] = head_x - x[30]  # relative position of head and right toe
-        x[18] = pelvis_x - x[18]  # relative center of mass
-        x[22] = pelvis_x - x[22]  # relative head x
-        x[26] = pelvis_x - x[26]  # relative torso x
-        x[28] = pelvis_x - x[28]  # relative left toe x
-        x[30] = pelvis_x - x[30]  # relative right toe x
-        x[32] = pelvis_x - x[32]  # relative left talus x
-        x[34] = pelvis_x - x[34]  # relative right talus x
+        dx[1] = head_x - x[28]  # relative position of head and left toe
+        dx[24] = head_x - x[30]  # relative position of head and right toe
+        dx[18] = pelvis_x - x[18]  # relative center of mass
+        dx[22] = pelvis_x - x[22]  # relative head x
+        dx[26] = pelvis_x - x[26]  # relative torso x
+        dx[28] = pelvis_x - x[28]  # relative left toe x
+        dx[30] = pelvis_x - x[30]  # relative right toe x
+        dx[32] = pelvis_x - x[32]  # relative left talus x
+        dx[34] = pelvis_x - x[34]  # relative right talus x
 
         if self.clip != 0:
-            x = np.clip(x, -self.clip, self.clip)
-        return np.array(x)
+            dx = np.clip(dx, -self.clip, self.clip)
+        return np.array(dx)
 
     def output_shape(self, input_space):
         return input_space.shape
