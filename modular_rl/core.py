@@ -215,6 +215,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             redis_conn = None
 
         threshold_paths = filter(lambda x: sum(x['reward']) > 2600.0, paths)
+        paths = filter(lambda x: len(x['reward']) > 0, paths)
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
         # VF Update ========
         vf_stats = agent.baseline.fit(paths)
