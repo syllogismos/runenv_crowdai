@@ -72,7 +72,8 @@ def make_deterministic_mlp(ob_space, ac_space, cfg):
     return policy
 
 FILTER_OPTIONS = [
-    ("filter", int, 1, "Whether to do a running average filter of the incoming observations and rewards")
+    ("filter", int, 1, "Whether to do a running average filter of the incoming observations and rewards"),
+    ("relative_ob_clip", float, 0, "How much to clip observation in relative filter observation")
 ]
 
 
@@ -80,6 +81,10 @@ def make_filters(cfg, ob_space):
     if cfg["filter"] == 1:
         obfilter = ZFilter(ob_space.shape, clip=5)
         rewfilter = ZFilter((), demean=False, clip=10)
+    elif cfg["filter"] == 2:
+        print "@@@@@@@@@@@@ Relative filter"
+        obfilter = RelativeFilter(clip=cfg["relative_ob_clip"])
+        rewfilter = IDENTITY
     else:
         print "@@@@@@@@@@@ Identity filters"
         obfilter = IDENTITY
