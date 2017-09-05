@@ -33,6 +33,8 @@ if __name__ == '__main__':
     parser.add_argument("--node_config", type=int, default=1)
     parser.add_argument("--http_gym_api", type=int, default=1)
     parser.add_argument("--redis", type=int, default=0)
+    parser.add_argument("--batch_scaler", type=int, default=0)
+    parser.add_argument("--load_scaler", type=str, default='')
     args, _ = parser.parse_known_args([arg for arg in sys.argv[1:] if arg not in ('-h', '--help')])
     env = RunEnv(visualize=False)
     env_spec = env.spec
@@ -87,6 +89,14 @@ if __name__ == '__main__':
         hdf, diagnostics = prepare_h5_file(args)
     gym.logger.setLevel(logging.WARN)
 
+    if cfg['batch_scaler'] == 1:
+        if cfg['load_scaler'] == '':
+            scaler = Scaler(env.observation_space.shape[0])
+        else:
+            scaler = pickle.load(open(cfg['load_scaler'], 'rb'))
+    else:
+        scaler = None
+
     COUNTER = 0
 
     def callback(stats, th_paths):
@@ -139,7 +149,8 @@ if __name__ == '__main__':
                                   ec2=args.ec2,
                                   callback=callback,
                                   usercfg=cfg,
-                                  args=args)
+                                  args=args,
+                                  scaler=scaler)
 
     if args.use_hdf:
         hdf['env_id'] = env_spec.id

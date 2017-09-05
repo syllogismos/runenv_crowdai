@@ -21,6 +21,7 @@ from osim.env import RunEnv
 import random
 import cPickle
 import redis
+import pickle
 concat = np.concatenate
 
 # ================================================================
@@ -93,7 +94,8 @@ PG_OPTIONS = [
 
 def run_policy_gradient_algorithm(env, agent, threads=1,
                                   destroy_env_every=5, ec2=False,
-                                  usercfg=None, callback=None, args=None):
+                                  usercfg=None, callback=None, args=None,
+                                  scaler=None):
     cfg = update_default_config(PG_OPTIONS, usercfg)
     cfg.update(usercfg)
     print "policy gradient config", cfg
@@ -101,6 +103,9 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
     if cfg["parallel"]:
         raise NotImplementedError
 
+    if cfg['batch_scaler'] == 1:
+        print scaler.vars, '@@@@@@@@@@@@@'
+        print scaler.means, '@@@@@@@@@@@@@'
     tstart = time.time()
     seed_iter = itertools.count()
 
@@ -146,6 +151,9 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
         pass
 
     for i in xrange(cfg["n_iter"]):
+        if cfg['batch_scaler'] == 1:
+            print scaler.vars, '@@@@@@@@@@@@@'
+            print scaler.means, '@@@@@@@@@@@@@'
         # Rollouts ========
         if args.node_config == 1 and \
                 args.http_gym_api == 1 and \
@@ -206,7 +214,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             """
             Computing all the paths from master node
             """
-            paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=multi_pool_count)
+            paths = get_paths(env, agent, cfg, seed_iter, envs=envs, threads=multi_pool_count, scaler=scaler)
 
         if args.redis == 1:
             redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
@@ -216,6 +224,15 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
 
         threshold_paths = filter(lambda x: sum(x['reward']) > 2600.0, paths)
         paths = filter(lambda x: len(x['reward']) > 0, paths)
+        if cfg['batch_scaler'] == 1:
+            unscaled = np.concatenate([p['unscaled_ob'] for p in paths])
+            scaler.update(unscaled)
+            scaler_file_name = cfg['outfile'] + '.dir/' + 'scaler_' + str(i+1)
+            scaler_file_name_l = cfg['outfile'] + '.dir/' + 'scaler_latest'
+            print scaler_file_name, "pickling scaler $$$$$"
+            pickle.dump(scaler, open(scaler_file_name, 'wb'))
+            pickle.dump(scaler, open(scaler_file_name_l, 'wb'))
+        # update scalar
         compute_advantage(agent.baseline, paths, gamma=cfg["gamma"], lam=cfg["lam"])
         # VF Update ========
         vf_stats = agent.baseline.fit(paths)
@@ -283,7 +300,7 @@ def destroy_servers(servers):
     pass
 
 
-def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
+def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1, scaler=None):
     # if envs == None:
     #     envs = [env]
 
@@ -294,7 +311,7 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
 
     pickled_enum = zip(envs, [agent]*threads, [cfg['timestep_limit']]*threads,
                        [cfg['timesteps_per_batch']/threads]*threads,
-                       [cfg]*threads)
+                       [cfg]*threads, [scaler]*threads)
 #
 #    if use_redis:
 #        p = Pool(threads)
@@ -317,7 +334,7 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1):
     else:
         paths = do_rollouts_serial(env, agent, cfg["timestep_limit"],
                                    cfg["timesteps_per_batch"], seed_iter,
-                                   cfg)
+                                   cfg, scaler=scaler)
 
     # if redis_conn:
     #     redis_conn.set('curr_batch_size', 0)
@@ -338,7 +355,8 @@ def do_rollouts_single_thread(enum_env):
                                       enum_env[1][2],
                                       enum_env[1][3],
                                       seed_iter,
-                                      enum_env[1][4])
+                                      enum_env[1][4],
+                                      enum_env[1][5])
     print "no of episodes in this thread,", len(thread_paths)
     print "episode lengths in this thread,", [len(x['reward']) for x in thread_paths]
     print "total rewards in this thread,", [sum(x['reward']) for x in thread_paths]
@@ -347,7 +365,7 @@ def do_rollouts_single_thread(enum_env):
 
 def rollout(env, agent, timestep_limit,
             env_is_none=False, seed=None,
-            redis_conn=None, cfg=None):
+            redis_conn=None, cfg=None, scaler=None):
     """
     Simulate the env and agent for timestep_limit steps
     """
@@ -356,6 +374,9 @@ def rollout(env, agent, timestep_limit,
     else:
         ob = env.reset()
     terminated = False
+
+    if cfg['batch_scaler'] == 1:
+        scale, offset = scaler.get()
 
     data = defaultdict(list)
 
@@ -373,6 +394,9 @@ def rollout(env, agent, timestep_limit,
                 break
 
         ob = agent.obfilt(ob)
+        data['unscaled_ob'].append(ob)
+        if cfg['batch_scaler'] == 1:
+            ob = (ob - offset) * scale
         # print type(ob), 'observation type'
         data["observation"].append(ob)
         action, agentinfo = agent.act(ob)
@@ -402,7 +426,7 @@ def rollout(env, agent, timestep_limit,
 
 
 def do_rollouts_serial(env, agent, timestep_limit,
-                       n_timesteps, seed_iter, cfg=None):
+                       n_timesteps, seed_iter, cfg=None, scaler=None):
 
     if env is None:
         env = RunEnv(visualize=False)
@@ -433,7 +457,7 @@ def do_rollouts_serial(env, agent, timestep_limit,
                                env_is_none=env_is_none,
                                seed=rollout_seed,
                                redis_conn=redis_conn,
-                               cfg=cfg)
+                               cfg=cfg, scaler=scaler)
                 path['seed'] = rollout_seed
                 # if path['terminated']:
                 #     paths.append(path)
@@ -450,7 +474,7 @@ def do_rollouts_serial(env, agent, timestep_limit,
             np.random.seed(rollout_seed)
             path = rollout(env, agent, timestep_limit,
                            env_is_none=env_is_none,
-                           seed=rollout_seed)
+                           seed=rollout_seed, scaler=scaler)
             path['seed'] = rollout_seed
             paths.append(path)
             timesteps_sofar += pathlength(path)
