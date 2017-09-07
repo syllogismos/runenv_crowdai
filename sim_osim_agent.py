@@ -24,10 +24,12 @@ token = 'b97ecc86c6e23bda7b2ee8771942cb9c'
 
 
 def animate_rollout(env, agent, n_timesteps,
-                    difficulty=0, delay=.01):
+                    difficulty=0, scaler=None, delay=.01):
     infos = defaultdict(list)
     agent.stochastic = True
-    ob = env.reset(difficulty=difficulty, seed=1)
+    if scaler is not None:
+        scale, offset = scaler.get()
+    ob = env.reset(difficulty=difficulty)
     if hasattr(agent, "reset"):
         agent.reset()
     env.render()
@@ -36,7 +38,9 @@ def animate_rollout(env, agent, n_timesteps,
         for i in tqdm(range(n_timesteps)):
             # for i in range(n_timesteps):
             # ob = agent.obfilter(ob, update=False)
-            ob = agent.obfilter(ob, update=True)
+            ob = agent.obfilt(ob)
+            if scaler is not None:
+                ob = (ob - offset) * scale
             a, _info = agent.act(ob)
             (ob, rew, done, info) = env.step(a)
             # print rew, env.current_state[1] - env.last_state[1], env.last_state[1], env.current_state[1]
@@ -175,6 +179,7 @@ def main():
     parser.add_argument("--all_snaps", type=int, default=0)
     parser.add_argument("--from_infos", type=str, default='')
     parser.add_argument("--difficulty", type=int, default=0)
+    parser.add_argument("--scaler", type=str, default='')
     args = parser.parse_args()
 
     if args.hdf[-4:] == '.pkl':
@@ -193,6 +198,11 @@ def main():
             snapname = args.snapname
         # env = gym.make(hdf["env_id"].value)
         agent = cPickle.loads(hdf['agent_snapshots'][snapname].value)
+
+    if args.scaler != '':
+        scaler = pickle.load(open(args.scaler, 'rb'))
+    else:
+        scaler = None
 
     agent.stochastic = False
 
@@ -231,7 +241,8 @@ def main():
                 else:
                     animate_rollout(env, agent,
                                     n_timesteps=timestep_limit,
-                                    difficulty=args.difficulty)
+                                    difficulty=args.difficulty,
+                                    scaler=scaler)
 
                 # pickle.dump(infos, open('sample_infos.pkl', 'wb'))
             # for (k,v) in infos.items():
