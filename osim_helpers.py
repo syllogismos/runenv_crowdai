@@ -3,6 +3,7 @@ import requests
 import json
 import cPickle
 import numpy as np
+import pdb
 # TODO update server script path below
 
 
@@ -22,8 +23,13 @@ def start_env_server(p=0, ec2=False, l='127.0.0.1'):
 ip_config = [
     {
         'ip': '127.0.0.1',
-        'cores': 3,
+        'cores': 2,
         'port': 8018
+    },
+    {
+        'ip': '127.0.0.1',
+        'cores': 2,
+        'port': 8019
     }
 ]
 
@@ -62,7 +68,10 @@ def get_paths_from_server(ip, port, agent, cfg, threads=1):
         'cache-control': "no-cache"
     }
 
+    print 'in get paths from server'
+    # pdb.set_trace()
     response = requests.request("POST", url, data=payload, headers=headers)
+    print 'after response'
     paths = json.loads(response.text)
     paths_np = []
     for path in paths:
@@ -77,6 +86,7 @@ def get_paths_from_server(ip, port, agent, cfg, threads=1):
 
 
 def get_paths_from_server_lambda(parallel_config):
+    print 'in server lambda'
     con = parallel_config[0]
     if 'port' in con:
         port = con['port']

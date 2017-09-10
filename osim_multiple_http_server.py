@@ -52,6 +52,7 @@ class myHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == '/get_paths':
+            print 'get paths'
             self.data_string = self.rfile.read(int(self.headers['Content-Length']))
             json_data = json.loads(self.data_string)
             agent = cPickle.loads(str(json_data['agent']))
@@ -63,12 +64,17 @@ class myHandler(BaseHTTPRequestHandler):
             for path in paths:
                 path_tolist = {}
                 for key in path.keys():
-                    if key in ['observation', 'action', 'reward', 'prob']:
+                    if key in ['observation', 'action', 'reward', 'prob', 'unscaled_ob']:
                         path_tolist[key] = path[key].tolist()
+                        print key, '@@@@@@@@@@@@@@@@@@'
+                        json.dumps(path_tolist[key])
                     else:
                         path_tolist[key] = path[key]
+                        print key, '@@@@@@@@@@@@@@@@@@@@'
+                        json.dumps(path_tolist[key])
                 paths_tolist.append(path_tolist)
             gc.collect()
+            json.dumps(paths_tolist)
 
             self.send_response(200)
             self.send_header('Content-type', 'application/javascript')

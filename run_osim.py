@@ -14,12 +14,8 @@ from osim.env import RunEnv
 import ast
 import pickle
 from osim_helpers import redis_config
-# import newrelic.agent
 
-# # application = newrelic.agent.register_application(timeout=10.0)
-# # import newrelic.agent
-# newrelic.agent.initialize('/Users/anil/newrelic.ini', 'production')
-# @newrelic.agent.background_task(name='trpo-osim', group='rl')
+
 if __name__ == '__main__':
     sys.stdout.flush()
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -42,10 +38,6 @@ if __name__ == '__main__':
     if os.path.exists(mondir):
         shutil.rmtree(mondir)
     os.mkdir(mondir)
-    # env = gym.wrappers.Monitor(env, mondir, video_callable=None if args.video else VIDEO_NEVER)
-    # env.spec.timestep_limit = 50
-    # print env.spec.timestep_limit, "@@@@@@@@@@@@"
-    # env = GaitEnv(visualize=False)
     agent_ctor = get_agent_cls(args.agent)
     update_argument_parser(parser, agent_ctor.options)
     args = parser.parse_args()
@@ -56,23 +48,22 @@ if __name__ == '__main__':
     cfg['redis_p'] = redis_config['port']
     np.random.seed(args.seed)
 
-    # loading agent from snapshot logic
+    if args.redis == 1:
+        redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
+        redis_conn.set('curr_batch_size', 0)
+
     loading_from_snapshot = False
     loading_from_pickle = False
     if args.load_snapshot != '':
         print "loading agent from snapshot", args.load_snapshot
-        # try:
         if args.load_snapshot[-4:] == '.pkl':
             print "loading agent from pickle file"
-            # agent is loaded from a pickle file
             hdff = open(args.load_snapshot, 'rb')
             loading_from_pickle = True
         else:
             print "loading agent from h5"
             hdff = h5py.File(args.load_snapshot, 'r')
             loading_from_snapshot = True
-        # except IOError:
-            # print "No such snapshot exists at path", args.load_snapshot
 
     if loading_from_snapshot:
         snapnames = hdff['agent_snapshots'].keys()
@@ -83,7 +74,6 @@ if __name__ == '__main__':
         agent = cPickle.load(hdff)
     else:
         agent = agent_ctor(env.observation_space, env.action_space, cfg)
-    # agent = agent_ctor(env.observation_space, env.action_space, cfg)
 
     if args.use_hdf:
         hdf, diagnostics = prepare_h5_file(args)
@@ -129,10 +119,6 @@ if __name__ == '__main__':
         for pth in th_paths:
             total_rew = sum(pth['reward'])
             pth['tot_rew'] = total_rew
-            # if args.load_snapshot != '':
-            #     snapshot_name = args.load_snapshot[10:-3]
-            # else:
-            #     snapshot_name = 'initial_training'
             outfile_prefix = os.path.basename(args.outfile)[:-3]
             pickle_file = 'training_agent_runs/' + '_'.join([outfile_prefix,
                                                              str(COUNTER),

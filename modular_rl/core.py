@@ -119,10 +119,6 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             """
             print "creating servers for the first time"
             print "Using http gym api"
-            # servers = list(map(lambda x: start_env_server(x, ec2), range(0, threads)))
-            # time.sleep(10)
-            # print "craeting envs for the first time"
-            # envs = create_envs(threads)
             server_states = {}
             envs = []
             for con in ip_config:
@@ -185,6 +181,7 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             """
             Sending agent to all the slaves and computing paths locally
             """
+            print "next iteration"
             agent_dump = cPickle.dumps(agent)
             paths = []
             parallel_config = zip(ip_config, [agent_dump]*len(ip_config),
@@ -195,12 +192,15 @@ def run_policy_gradient_algorithm(env, agent, threads=1,
             #     # all the machines, other wise every node will be seperate
             steps_per_core = cfg['timesteps_per_batch']/total_cores
             cfg['timesteps_per_core'] = steps_per_core
+            print "next iteration"
             p = Pool(len(ip_config))
             parallel_paths = p.map(get_paths_from_server_lambda,
                                    parallel_config)
+            print "next iteration"
             p.close()
             p.join()
             paths = list(itertools.chain(*parallel_paths))
+            print "next iteration"
 
             # for con in ip_config:
             #     if 'port' in con:
@@ -301,28 +301,10 @@ def destroy_servers(servers):
 
 
 def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1, scaler=None):
-    # if envs == None:
-    #     envs = [env]
-
-    # if cfg['redis'] == 1:
-    #     redis_conn = redis.Redis(cfg['redis_h'], cfg['redis_p'])
-    # else:
-    #     redis_conn = None
 
     pickled_enum = zip(envs, [agent]*threads, [cfg['timestep_limit']]*threads,
                        [cfg['timesteps_per_batch']/threads]*threads,
                        [cfg]*threads, [scaler]*threads)
-#
-#    if use_redis:
-#        p = Pool(threads)
-#        parallel_paths = p.map(do_rollouts_single_thread_redis,
-#                               enumerate(pickled_enum))
-#        p.close()
-#        p.join()
-#        paths = list(itertools.chain(*parallel_paths))
-#        pass
-
-#    else:
     if threads > 1:
         p = Pool(threads)
         parallel_paths = p.map(do_rollouts_single_thread,
@@ -330,14 +312,10 @@ def get_paths(env, agent, cfg, seed_iter, envs=None, threads=1, scaler=None):
         p.close()
         p.join()
         paths = list(itertools.chain(*parallel_paths))
-        # raise NotImplementedError
     else:
         paths = do_rollouts_serial(env, agent, cfg["timestep_limit"],
                                    cfg["timesteps_per_batch"], seed_iter,
                                    cfg, scaler=scaler)
-
-    # if redis_conn:
-    #     redis_conn.set('curr_batch_size', 0)
 
     return paths
 
@@ -384,6 +362,13 @@ def rollout(env, agent, timestep_limit,
 
         if (i % 3 == 0) and (redis_conn is not None):
             # checking if the we reached the batch size
+            # while True:
+            #     try:
+            #         curr_batch_size = redis_conn.get('curr_batch_size')
+            #         break
+            #     except:
+            #         print "Redis get failed"
+            #         time.sleep(1)
             curr_batch_size = redis_conn.get('curr_batch_size')
             if curr_batch_size is None:
                 curr_batch_size == 0
